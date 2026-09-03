@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CaliBaz Market</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  body { font-family: sans-serif; background:#0f1620; color:#f2e9d8; margin:0; padding:16px; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  p.sub { color:#9aa5b1; font-size:13px; margin-top:0; margin-bottom:20px; }
+  .category { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:16px; margin-bottom:10px; font-size:15px; }
+  .category:active { background:#232f3d; }
+</style>
+</head>
+<body>
+  <h1>CaliBaz Market</h1>
+  <p class="sub">Your trusted multi-vendor marketplace</p>
+  <div id="categories"></div>
+
+<script>
+  Telegram.WebApp.ready();
+  Telegram.WebApp.expand();
+
+  const categories = [
+    "Fruit Juice & Related Products",
+    "Cake & Related Products",
+    "Herbarium & Herbal Products",
+    "Land & Housing",
+    "Fashion & Apparel",
+    "Home & Lifestyle",
+    "Electronics & Gadgets",
+    "Beauty & Personal Care",
+    "Digital Services",
+    "Food & Related Products",
+    "Custom/Handmade Requests"
+  ];
+
+  const container = document.getElementById("categories");
+  categories.forEach(name => {
+    const div = document.createElement("div");
+    div.className = "category";
+    div.textContent = name;
+    container.appendChild(div);
+  });
+</script>
+</body>
+</html>
+
