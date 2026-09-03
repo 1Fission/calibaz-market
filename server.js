@@ -40,6 +40,21 @@ app.post("/webhook", async (req, res) => {
     }
   }
 
+// Handle button taps (like "Become a Vendor")
+  if (update.callback_query) {
+    const chatId = update.callback_query.message.chat.id;
+    const data = update.callback_query.data;
+
+    if (data === "become_vendor") {
+      await sendInvoice(chatId);
+    }
+
+    await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callback_query_id: update.callback_query.id })
+    });
+  }
   // Handle successful payments
   if (update.message && update.message.successful_payment) {
     const chatId = update.message.chat.id;
