@@ -6,6 +6,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const SUPPORT_USERNAME = "FissionHelp";
 const VENDOR_FEE_STARS = 57;
+const CHANNEL_USERNAME = "CalibazHQ";
 
 // Health check - lets us confirm the server is running
 app.get("/", (req, res) => {
