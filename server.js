@@ -47,7 +47,16 @@ app.post("/webhook", async (req, res) => {
     const data = update.callback_query.data;
 
     if (data === "become_vendor") {
-      await sendInvoice(chatId);
+      const userId = update.callback_query.from.id;
+      const joined = await isChannelMember(userId);
+      if (joined) {
+        await sendInvoice(chatId);
+      } else {
+        await sendMessage(chatId,
+          "Please join our channel first to become a vendor 👇",
+          joinChannelKeyboard()
+        );
+      }
     }
 
     await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
