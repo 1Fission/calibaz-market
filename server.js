@@ -107,6 +107,22 @@ async function sendInvoice(chatId) {
   });
 }
 
+async function isChannelMember(userId) {
+  const res = await fetch(`${TELEGRAM_API}/getChatMember?chat_id=@${CHANNEL_USERNAME}&user_id=${userId}`);
+  const data = await res.json();
+  if (!data.ok) return false;
+  const status = data.result.status;
+  return status === "member" || status === "administrator" || status === "creator";
+}
+
+function joinChannelKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "📢 Join CaliBaz Channel", url: `https://t.me/${CHANNEL_USERNAME}` }],
+      [{ text: "✅ I've Joined - Try Again", callback_data: "become_vendor" }]
+    ]
+  };
+}
 function mainMenuKeyboard() {
   return {
     inline_keyboard: [
