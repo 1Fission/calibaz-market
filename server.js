@@ -51,6 +51,28 @@ app.post("/webhook", async (req, res) => {
     if (text === "/becomevendor") {
       await sendInvoice(chatId);
     }
+if (text.startsWith("/addproduct")) {
+      const userId = update.message.from.id;
+      if (!ADMIN_IDS.includes(userId)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const parts = text.replace("/addproduct", "").split("|").map(p => p.trim());
+        if (parts.length < 5) {
+          await sendMessage(chatId,
+            "Format:\n/addproduct Category | Name | Price | Description | vendorusername"
+          );
+        } else {
+          const [category, name, price, description, vendor] = parts;
+          const products = loadProducts();
+          products.push({
+            id: Date.now().toString(),
+            category, name, price, description, vendor
+          });
+          saveProducts(products);
+          await sendMessage(chatId, `Product added: ${name} (${category})`);
+        }
+      }
+    }
   }
 
 // Handle button taps (like "Become a Vendor")
