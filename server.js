@@ -7,6 +7,18 @@ const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const SUPPORT_USERNAME = "FissionHelp";
 const VENDOR_FEE_STARS = 57;
 const CHANNEL_USERNAME = "CalibazHQ";
+const fs = require("fs");
+const DATA_FILE = "./data.json";
+const ADMIN_IDS = [1256464530, 7310115244];
+
+function loadProducts() {
+  if (!fs.existsSync(DATA_FILE)) return [];
+  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+}
+
+function saveProducts(products) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(products, null, 2));
+}
 
 // Health check - lets us confirm the server is running
 app.get("/", (req, res) => {
