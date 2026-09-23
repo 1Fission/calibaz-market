@@ -75,6 +75,11 @@ if (text.startsWith("/addproduct")) {
     }
   }
 
+// Endpoint for the Mini App to fetch all products
+app.get("/products", (req, res) => {
+  const products = loadProducts();
+  res.json(products);
+});
 // Handle button taps (like "Become a Vendor")
   if (update.callback_query) {
     const chatId = update.callback_query.message.chat.id;
