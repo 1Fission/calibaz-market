@@ -25,11 +25,16 @@ app.get("/", (req, res) => {
   res.send("CaliBaz Market backend is running.");
 });
 
+// Endpoint for the Mini App to fetch all products
+app.get("/products", (req, res) => {
+  const products = loadProducts();
+  res.json(products);
+});
+
 // Telegram sends all bot updates here
 app.post("/webhook", async (req, res) => {
   const update = req.body;
 
-  // Handle regular messages (commands)
   if (update.message) {
     const chatId = update.message.chat.id;
     const text = update.message.text || "";
@@ -51,7 +56,8 @@ app.post("/webhook", async (req, res) => {
     if (text === "/becomevendor") {
       await sendInvoice(chatId);
     }
-if (text.startsWith("/addproduct")) {
+
+    if (text.startsWith("/addproduct")) {
       const userId = update.message.from.id;
       if (!ADMIN_IDS.includes(userId)) {
         await sendMessage(chatId, "You're not authorized to use this command.");
@@ -75,12 +81,6 @@ if (text.startsWith("/addproduct")) {
     }
   }
 
-// Endpoint for the Mini App to fetch all products
-app.get("/products", (req, res) => {
-  const products = loadProducts();
-  res.json(products);
-});
-// Handle button taps (like "Become a Vendor")
   if (update.callback_query) {
     const chatId = update.callback_query.message.chat.id;
     const data = update.callback_query.data;
@@ -104,7 +104,7 @@ app.get("/products", (req, res) => {
       body: JSON.stringify({ callback_query_id: update.callback_query.id })
     });
   }
-  // Handle successful payments
+
   if (update.message && update.message.successful_payment) {
     const chatId = update.message.chat.id;
     await sendMessage(chatId,
@@ -113,7 +113,6 @@ app.get("/products", (req, res) => {
     );
   }
 
-  // Handle pre-checkout (Telegram requires confirming the invoice before charging)
   if (update.pre_checkout_query) {
     await fetch(`${TELEGRAM_API}/answerPreCheckoutQuery`, {
       method: "POST",
@@ -171,6 +170,7 @@ function joinChannelKeyboard() {
     ]
   };
 }
+
 function mainMenuKeyboard() {
   return {
     inline_keyboard: [
@@ -199,4 +199,3 @@ function adminChatKeyboard() {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
