@@ -11,12 +11,28 @@
   p.sub { color:#9aa5b1; font-size:13px; margin-top:0; margin-bottom:20px; }
   .category { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:16px; margin-bottom:10px; font-size:15px; }
   .category:active { background:#232f3d; }
+  .back { color:#9aa5b1; font-size:14px; margin-bottom:16px; display:inline-block; }
+  .product { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:16px; margin-bottom:10px; }
+  .product h3 { margin:0 0 6px 0; font-size:16px; }
+  .product .price { color:#f2c94c; font-weight:bold; margin-bottom:6px; }
+  .product .desc { color:#9aa5b1; font-size:13px; margin-bottom:12px; }
+  .product button { background:#2f8f4e; color:#fff; border:none; border-radius:8px; padding:10px 14px; font-size:14px; width:100%; }
+  .empty { color:#9aa5b1; font-size:14px; text-align:center; margin-top:30px; }
 </style>
 </head>
 <body>
   <h1>CaliBaz Market</h1>
   <p class="sub">Your trusted multi-vendor marketplace</p>
-  <div id="categories"></div>
+
+  <div id="categoriesView">
+    <div id="categories"></div>
+  </div>
+
+  <div id="productsView" style="display:none;">
+    <a class="back" id="backBtn">&larr; Back to categories</a>
+    <h2 id="categoryTitle" style="font-size:17px;"></h2>
+    <div id="products"></div>
+  </div>
 
 <script>
   Telegram.WebApp.ready();
@@ -36,14 +52,62 @@
     "Custom/Handmade Requests"
   ];
 
+  const categoriesView = document.getElementById("categoriesView");
+  const productsView = document.getElementById("productsView");
+  const categoryTitle = document.getElementById("categoryTitle");
+  const productsContainer = document.getElementById("products");
+  const backBtn = document.getElementById("backBtn");
+
   const container = document.getElementById("categories");
   categories.forEach(name => {
     const div = document.createElement("div");
     div.className = "category";
     div.textContent = name;
+    div.addEventListener("click", () => showCategory(name));
     container.appendChild(div);
   });
+
+  backBtn.addEventListener("click", () => {
+    productsView.style.display = "none";
+    categoriesView.style.display = "block";
+  });
+
+  async function showCategory(name) {
+    categoryTitle.textContent = name;
+    productsContainer.innerHTML = "Loading...";
+    categoriesView.style.display = "none";
+    productsView.style.display = "block";
+
+    try {
+      const res = await fetch("https://calibaz-backend.onrender.com/products");
+      const allProducts = await res.json();
+      const filtered = allProducts.filter(p => p.category === name);
+
+      productsContainer.innerHTML = "";
+
+      if (filtered.length === 0) {
+        productsContainer.innerHTML = '<div class="empty">No products listed in this category yet.</div>';
+        return;
+      }
+
+      filtered.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "product";
+        div.innerHTML = `
+          <h3>${p.name}</h3>
+          <div class="price">${p.price} Stars</div>
+          <div class="desc">${p.description}</div>
+          <button>I'm Interested</button>
+        `;
+        div.querySelector("button").addEventListener("click", () => {
+          Telegram.WebApp.openTelegramLink(`https://t.me/${p.vendor}`);
+        });
+        productsContainer.appendChild(div);
+      });
+    } catch (err) {
+      productsContainer.innerHTML = '<div class="empty">Could not load products. Please try again.</div>';
+    }
+  }
 </script>
 </body>
 </html>
-
