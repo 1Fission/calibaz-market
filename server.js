@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 app.use(express.json());
+app.use(require("cors")());
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
