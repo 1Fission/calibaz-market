@@ -8,17 +8,27 @@ const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const SUPPORT_USERNAME = "FissionHelp";
 const VENDOR_FEE_STARS = 57;
 const CHANNEL_USERNAME = "CalibazHQ";
-const fs = require("fs");
-const DATA_FILE = "./data.json";
 const ADMIN_IDS = [1256464530, 7310115244];
 
-function loadProducts() {
-  if (!fs.existsSync(DATA_FILE)) return [];
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+const { MongoClient } = require("mongodb");
+const MONGO_URI = process.env.MONGO_URI;
+const client = new MongoClient(MONGO_URI);
+let productsCollection;
+
+async function connectDB() {
+  await client.connect();
+  const db = client.db("calibaz");
+  productsCollection = db.collection("products");
+  console.log("Connected to MongoDB");
+}
+connectDB().catch(err => console.error("MongoDB connection error:", err));
+
+async function loadProducts() {
+  return await productsCollection.find({}).toArray();
 }
 
-function saveProducts(products) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(products, null, 2));
+async function saveProduct(product) {
+  await productsCollection.insertOne(product);
 }
 
 // Health check - lets us confirm the server is running
@@ -27,9 +37,13 @@ app.get("/", (req, res) => {
 });
 
 // Endpoint for the Mini App to fetch all products
-app.get("/products", (req, res) => {
-  const products = loadProducts();
-  res.json(products);
+app.get("/products", async (req, res) => {
+  try {
+    const products = await loadProducts();
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: "Could not load products" });
+  }
 });
 
 // Telegram sends all bot updates here
@@ -70,13 +84,15 @@ app.post("/webhook", async (req, res) => {
           );
         } else {
           const [category, name, price, description, vendor] = parts;
-          const products = loadProducts();
-          products.push({
-            id: Date.now().toString(),
-            category, name, price, description, vendor
-          });
-          saveProducts(products);
-          await sendMessage(chatId, `Product added: ${name} (${category})`);
+          try {
+            await saveProduct({
+              id: Date.now().toString(),
+              category, name, price, description, vendor
+            });
+            await sendMessage(chatId, `Product added: ${name} (${category})`);
+          } catch (err) {
+            await sendMessage(chatId, "Error saving product. Please try again.");
+          }
         }
       }
     }
