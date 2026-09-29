@@ -10,6 +10,21 @@ const VENDOR_FEE_STARS = 57;
 const CHANNEL_USERNAME = "CalibazHQ";
 const ADMIN_IDS = [1256464530, 7310115244];
 
+const CATEGORIES = [
+  "Fruit Juice & Related Products",
+  "Cake & Related Products",
+  "Herbarium & Herbal Products",
+  "Land & Housing",
+  "Fashion & Apparel",
+  "Home & Lifestyle",
+  "Electronics & Gadgets",
+  "Beauty & Personal Care",
+  "Digital Services",
+  "Food & Related Products",
+  "Custom/Handmade Requests"
+];
+const LAND_HOUSING_INDEX = 3;
+
 const { MongoClient } = require("mongodb");
 const MONGO_URI = process.env.MONGO_URI;
 const client = new MongoClient(MONGO_URI);
@@ -31,12 +46,11 @@ async function saveProduct(product) {
   await productsCollection.insertOne(product);
 }
 
-// Health check - lets us confirm the server is running
+// Health check
 app.get("/", (req, res) => {
   res.send("CaliBaz Market backend is running.");
 });
 
-// Endpoint for the Mini App to fetch all products
 app.get("/products", async (req, res) => {
   try {
     const products = await loadProducts();
@@ -46,7 +60,6 @@ app.get("/products", async (req, res) => {
   }
 });
 
-// Telegram sends all bot updates here
 app.post("/webhook", async (req, res) => {
   const update = req.body;
 
@@ -69,7 +82,16 @@ app.post("/webhook", async (req, res) => {
     }
 
     if (text === "/becomevendor") {
-      await sendInvoice(chatId);
+      const userId = update.message.from.id;
+      const joined = await isChannelMember(userId);
+      if (joined) {
+        await sendMessage(chatId, "Which category will you be selling in?", vendorCategoryKeyboard());
+      } else {
+        await sendMessage(chatId,
+          "Please join our channel first to become a vendor 👇",
+          joinChannelKeyboard()
+        );
+      }
     }
 
     if (text.startsWith("/addproduct")) {
@@ -106,12 +128,25 @@ app.post("/webhook", async (req, res) => {
       const userId = update.callback_query.from.id;
       const joined = await isChannelMember(userId);
       if (joined) {
-        await sendInvoice(chatId);
+        await sendMessage(chatId, "Which category will you be selling in?", vendorCategoryKeyboard());
       } else {
         await sendMessage(chatId,
           "Please join our channel first to become a vendor 👇",
           joinChannelKeyboard()
         );
+      }
+    }
+
+    if (data.startsWith("vc_")) {
+      const index = parseInt(data.replace("vc_", ""), 10);
+      const category = CATEGORIES[index];
+      if (index === LAND_HOUSING_INDEX) {
+        await sendMessage(chatId,
+          `🏠 Great news! ${category} listings are free right now.\n\nTap below to chat with admin and share your listing details.`,
+          adminChatKeyboard()
+        );
+      } else {
+        await sendInvoice(chatId);
       }
     }
 
@@ -188,11 +223,19 @@ function joinChannelKeyboard() {
   };
 }
 
+function vendorCategoryKeyboard() {
+  return {
+    inline_keyboard: CATEGORIES.map((cat, i) => (
+      [{ text: cat, callback_data: `vc_${i}` }]
+    ))
+  };
+}
+
 function mainMenuKeyboard() {
   return {
     inline_keyboard: [
       [{ text: "🛒 Open Market", web_app: { url: "https://1fission.github.io/calibaz-market/" } }],
-      [{ text: "💼 Become a Vendor (57 Stars)", callback_data: "become_vendor" }],
+      [{ text: "💼 Become a Vendor", callback_data: "become_vendor" }],
       [{ text: "🆘 Support", url: `https://t.me/${SUPPORT_USERNAME}` }]
     ]
   };
@@ -216,4 +259,3 @@ function adminChatKeyboard() {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-// MongoDB migration complete
