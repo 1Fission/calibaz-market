@@ -15,6 +15,7 @@
   .vendor { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:16px; margin-bottom:10px; font-size:15px; }
   .vendor:active { background:#232f3d; }
   .product { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:16px; margin-bottom:10px; }
+  .pimg { width:100%; border-radius:8px; margin-bottom:10px; }
   .product h3 { margin:0 0 6px 0; font-size:16px; }
   .product .price { color:#f2c94c; font-weight:bold; margin-bottom:6px; }
   .product .desc { color:#9aa5b1; font-size:13px; margin-bottom:12px; }
@@ -147,6 +148,7 @@
       const div = document.createElement("div");
       div.className = "product";
       div.innerHTML = `
+        ${p.image ? `<img class="pimg" src="https://calibaz-backend.onrender.com/image/${p.image}">` : ""}
         <h3>${p.name}</h3>
         <div class="price">${p.price} Stars</div>
         <div class="desc">${p.description}</div>
