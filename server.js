@@ -46,7 +46,6 @@ async function saveProduct(product) {
   await productsCollection.insertOne(product);
 }
 
-// Health check
 app.get("/", (req, res) => {
   res.send("CaliBaz Market backend is running.");
 });
@@ -100,18 +99,18 @@ app.post("/webhook", async (req, res) => {
         await sendMessage(chatId, "You're not authorized to use this command.");
       } else {
         const parts = text.replace("/addproduct", "").split("|").map(p => p.trim());
-        if (parts.length < 5) {
+        if (parts.length < 6) {
           await sendMessage(chatId,
-            "Format:\n/addproduct Category | Name | Price | Description | vendorusername"
+            "Format:\n/addproduct Category | Name | Price | Description | vendorusername | Vendor Display Name"
           );
         } else {
-          const [category, name, price, description, vendor] = parts;
+          const [category, name, price, description, vendor, vendorName] = parts;
           try {
             await saveProduct({
               id: Date.now().toString(),
-              category, name, price, description, vendor
+              category, name, price, description, vendor, vendorName
             });
-            await sendMessage(chatId, `Product added: ${name} (${category})`);
+            await sendMessage(chatId, `Product added: ${name} (${category}) by ${vendorName}`);
           } catch (err) {
             await sendMessage(chatId, "Error saving product. Please try again.");
           }
@@ -259,4 +258,3 @@ function adminChatKeyboard() {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-// persistence verified
