@@ -64,7 +64,7 @@ app.post("/webhook", async (req, res) => {
 
   if (update.message) {
     const chatId = update.message.chat.id;
-    const text = update.message.text || "";
+    const text = update.message.text || update.message.caption || "";
 
     if (text === "/listproducts" || text.startsWith("/removeproduct")) {
       if (!ADMIN_IDS.includes(update.message.from.id)) {
@@ -130,7 +130,8 @@ app.post("/webhook", async (req, res) => {
           try {
             await saveProduct({
               id: Date.now().toString(),
-              category, name, price, description, vendor, vendorName
+              category, name, price, description, vendor, vendorName,
+              image: (update.message.photo ? update.message.photo[update.message.photo.length - 1].file_id : null)
             });
             await sendMessage(chatId, `Product added: ${name} (${category}) by ${vendorName}`);
           } catch (err) {
@@ -280,3 +281,16 @@ function adminChatKeyboard() {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.get("/image/:fileId", async (req, res) => {
+  try {
+    const info = await (await fetch(`${TELEGRAM_API}/getFile?file_id=${encodeURIComponent(req.params.fileId)}`)).json();
+    if (!info.ok) return res.sendStatus(404);
+    const img = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${info.result.file_path}`);
+    res.set("Content-Type", img.headers.get("content-type") || "image/jpeg");
+    res.set("Cache-Control", "public, max-age=86400");
+    res.send(Buffer.from(await img.arrayBuffer()));
+  } catch (e) {
+    res.sendStatus(500);
+  }
+});
