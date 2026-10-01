@@ -163,12 +163,12 @@
       div.innerHTML = `
         ${p.image ? `<img class="pimg" src="https://calibaz-backend.onrender.com/image/${p.image}">` : ""}
         <h3>${p.name}</h3>
-        <div class="price">${p.price} Stars</div>
+        <div class="price">${/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price}</div>
         <div class="desc">${p.description}</div>
         <button>I'm Interested</button>
       `;
       div.querySelector("button").addEventListener("click", () => {
-        Telegram.WebApp.openTelegramLink(`https://t.me/${p.vendor}?text=${encodeURIComponent("Hi, I am interested in " + p.name + " (" + p.price + " Stars) on CaliBaz Market.")}`);
+        Telegram.WebApp.openTelegramLink(`https://t.me/${p.vendor}?text=${encodeURIComponent("Hi, I am interested in " + p.name + " (" + (/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price) + ") on CaliBaz Market.")}`);
       });
       productsContainer.appendChild(div);
     });
