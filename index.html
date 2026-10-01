@@ -153,7 +153,7 @@
         <button>I'm Interested</button>
       `;
       div.querySelector("button").addEventListener("click", () => {
-        Telegram.WebApp.openTelegramLink(`https://t.me/${p.vendor}`);
+        Telegram.WebApp.openTelegramLink(`https://t.me/${p.vendor}?text=${encodeURIComponent("Hi, I am interested in " + p.name + " (" + p.price + " Stars) on CaliBaz Market.")}`);
       });
       productsContainer.appendChild(div);
     });
