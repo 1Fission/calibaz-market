@@ -10,6 +10,23 @@ const VENDOR_FEE_STARS = 57;
 const CHANNEL_USERNAME = "CalibazHQ";
 const ADMIN_IDS = [1256464530, 7310115244];
 
+const crypto = require("crypto");
+const TEST_CATEGORY = "Test Items (Admin Only)";
+function isAdminInitData(initData) {
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get("hash");
+    params.delete("hash");
+    const check = [...params.entries()].map(([k, v]) => `${k}=${v}`).sort().join("\n");
+    const secret = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
+    const calc = crypto.createHmac("sha256", secret).update(check).digest("hex");
+    if (calc !== hash) return false;
+    return ADMIN_IDS.includes(JSON.parse(params.get("user")).id);
+  } catch (e) {
+    return false;
+  }
+}
+
 const CATEGORIES = [
   "Fruit Juice & Related Products",
   "Cake & Related Products",
@@ -54,7 +71,7 @@ app.get("/", (req, res) => {
 app.get("/products", async (req, res) => {
   try {
     const products = await loadProducts();
-    const vv = (await verifiedCollection.find({}).toArray()).map(v => v.vendor); res.json(products.map(p => ({ ...p, verified: vv.includes((p.vendor || "").toLowerCase()) })));
+    const isAdmin = isAdminInitData(req.headers["x-init-data"] || ""); const vv = (await verifiedCollection.find({}).toArray()).map(v => v.vendor); res.json(products.filter(p => isAdmin || p.category !== TEST_CATEGORY).map(p => ({ ...p, verified: vv.includes((p.vendor || "").toLowerCase()) })));
   } catch (err) {
     res.status(500).json({ error: "Could not load products" });
   }
@@ -66,6 +83,20 @@ app.post("/webhook", async (req, res) => {
   if (update.message) {
     const chatId = update.message.chat.id;
     const text = update.message.text || update.message.caption || "";
+
+    if (text.startsWith("/setcategory")) {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const [id, category] = text.replace("/setcategory", "").split("|").map(s => s.trim());
+        if (!id || !category) {
+          await sendMessage(chatId, "Format:\n/setcategory <id> | Category name");
+        } else {
+          const r = await productsCollection.updateOne({ id }, { $set: { category } });
+          await sendMessage(chatId, r.matchedCount ? "Category updated." : "No product found with that id.");
+        }
+      }
+    }
 
     if (text.startsWith("/verify") || text.startsWith("/unverify")) {
       if (!ADMIN_IDS.includes(update.message.from.id)) {
