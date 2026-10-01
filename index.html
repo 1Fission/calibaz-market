@@ -12,6 +12,8 @@
   .category { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:16px; margin-bottom:10px; font-size:15px; }
   .category:active { background:#232f3d; }
   .back { color:#9aa5b1; font-size:14px; margin-bottom:16px; display:inline-block; }
+  .vendor { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:16px; margin-bottom:10px; font-size:15px; }
+  .vendor:active { background:#232f3d; }
   .product { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:16px; margin-bottom:10px; }
   .product h3 { margin:0 0 6px 0; font-size:16px; }
   .product .price { color:#f2c94c; font-weight:bold; margin-bottom:6px; }
@@ -28,9 +30,15 @@
     <div id="categories"></div>
   </div>
 
-  <div id="productsView" style="display:none;">
-    <a class="back" id="backBtn">&larr; Back to categories</a>
+  <div id="vendorsView" style="display:none;">
+    <a class="back" id="backToCategoriesBtn">&larr; Back to categories</a>
     <h2 id="categoryTitle" style="font-size:17px;"></h2>
+    <div id="vendors"></div>
+  </div>
+
+  <div id="productsView" style="display:none;">
+    <a class="back" id="backToVendorsBtn">&larr; Back to vendors</a>
+    <h2 id="vendorTitle" style="font-size:17px;"></h2>
     <div id="products"></div>
   </div>
 
@@ -53,60 +61,102 @@
   ];
 
   const categoriesView = document.getElementById("categoriesView");
+  const vendorsView = document.getElementById("vendorsView");
   const productsView = document.getElementById("productsView");
   const categoryTitle = document.getElementById("categoryTitle");
+  const vendorTitle = document.getElementById("vendorTitle");
+  const vendorsContainer = document.getElementById("vendors");
   const productsContainer = document.getElementById("products");
-  const backBtn = document.getElementById("backBtn");
+  const backToCategoriesBtn = document.getElementById("backToCategoriesBtn");
+  const backToVendorsBtn = document.getElementById("backToVendorsBtn");
+
+  let currentCategory = null;
+  let currentCategoryProducts = [];
 
   const container = document.getElementById("categories");
   categories.forEach(name => {
     const div = document.createElement("div");
     div.className = "category";
     div.textContent = name;
-    div.addEventListener("click", () => showCategory(name));
+    div.addEventListener("click", () => showVendors(name));
     container.appendChild(div);
   });
 
-  backBtn.addEventListener("click", () => {
-    productsView.style.display = "none";
+  backToCategoriesBtn.addEventListener("click", () => {
+    vendorsView.style.display = "none";
     categoriesView.style.display = "block";
   });
 
-  async function showCategory(name) {
-    categoryTitle.textContent = name;
-    productsContainer.innerHTML = "Loading...";
+  backToVendorsBtn.addEventListener("click", () => {
+    productsView.style.display = "none";
+    vendorsView.style.display = "block";
+  });
+
+  async function showVendors(categoryName) {
+    currentCategory = categoryName;
+    categoryTitle.textContent = categoryName;
+    vendorsContainer.innerHTML = "Loading...";
     categoriesView.style.display = "none";
-    productsView.style.display = "block";
+    vendorsView.style.display = "block";
 
     try {
       const res = await fetch("https://calibaz-backend.onrender.com/products");
       const allProducts = await res.json();
-      const filtered = allProducts.filter(p => p.category === name);
+      currentCategoryProducts = allProducts.filter(p => p.category === categoryName);
 
-      productsContainer.innerHTML = "";
+      vendorsContainer.innerHTML = "";
 
-      if (filtered.length === 0) {
-        productsContainer.innerHTML = '<div class="empty">No products listed in this category yet.</div>';
+      if (currentCategoryProducts.length === 0) {
+        vendorsContainer.innerHTML = '<div class="empty">No vendors in this category yet.</div>';
         return;
       }
 
-      filtered.forEach(p => {
+      const vendorMap = {};
+      currentCategoryProducts.forEach(p => {
+        if (!vendorMap[p.vendor]) {
+          vendorMap[p.vendor] = p.vendorName || p.vendor;
+        }
+      });
+
+      Object.keys(vendorMap).forEach(vendorUsername => {
         const div = document.createElement("div");
-        div.className = "product";
-        div.innerHTML = `
-          <h3>${p.name}</h3>
-          <div class="price">${p.price} Stars</div>
-          <div class="desc">${p.description}</div>
-          <button>I'm Interested</button>
-        `;
-        div.querySelector("button").addEventListener("click", () => {
-          Telegram.WebApp.openTelegramLink(`https://t.me/${p.vendor}`);
-        });
-        productsContainer.appendChild(div);
+        div.className = "vendor";
+        div.textContent = vendorMap[vendorUsername];
+        div.addEventListener("click", () => showProducts(vendorUsername, vendorMap[vendorUsername]));
+        vendorsContainer.appendChild(div);
       });
     } catch (err) {
-      productsContainer.innerHTML = '<div class="empty">Could not load products. Please try again.</div>';
+      vendorsContainer.innerHTML = '<div class="empty">Could not load vendors. Please try again.</div>';
     }
+  }
+
+  function showProducts(vendorUsername, vendorDisplayName) {
+    vendorTitle.textContent = vendorDisplayName;
+    vendorsView.style.display = "none";
+    productsView.style.display = "block";
+    productsContainer.innerHTML = "";
+
+    const filtered = currentCategoryProducts.filter(p => p.vendor === vendorUsername);
+
+    if (filtered.length === 0) {
+      productsContainer.innerHTML = '<div class="empty">No products listed yet.</div>';
+      return;
+    }
+
+    filtered.forEach(p => {
+      const div = document.createElement("div");
+      div.className = "product";
+      div.innerHTML = `
+        <h3>${p.name}</h3>
+        <div class="price">${p.price} Stars</div>
+        <div class="desc">${p.description}</div>
+        <button>I'm Interested</button>
+      `;
+      div.querySelector("button").addEventListener("click", () => {
+        Telegram.WebApp.openTelegramLink(`https://t.me/${p.vendor}`);
+      });
+      productsContainer.appendChild(div);
+    });
   }
 </script>
 </body>
