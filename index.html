@@ -115,11 +115,11 @@
       const vendorMap = {};
       currentCategoryProducts.forEach(p => {
         if (!vendorMap[p.vendor]) {
-          vendorMap[p.vendor] = p.vendorName || p.vendor;
+          vendorMap[p.vendor] = (p.vendorName || p.vendor) + (p.verified ? " ✅" : "");
         }
       });
 
-      Object.keys(vendorMap).forEach(vendorUsername => {
+      Object.keys(vendorMap).sort((a, b) => vendorMap[b].includes("✅") - vendorMap[a].includes("✅")).forEach(vendorUsername => {
         const div = document.createElement("div");
         div.className = "vendor";
         div.textContent = vendorMap[vendorUsername];
