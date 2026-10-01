@@ -66,6 +66,28 @@ app.post("/webhook", async (req, res) => {
     const chatId = update.message.chat.id;
     const text = update.message.text || "";
 
+    if (text === "/listproducts" || text.startsWith("/removeproduct")) {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else if (text === "/listproducts") {
+        const all = await loadProducts();
+        if (all.length === 0) {
+          await sendMessage(chatId, "No products yet.");
+        } else {
+          const lines = all.slice(0, 25).map(p => `${p.id} | ${p.name} | ${p.category} | ${p.vendor}`);
+          await sendMessage(chatId, lines.join("\n") + (all.length > 25 ? `\n...and ${all.length - 25} more` : ""));
+        }
+      } else {
+        const id = text.replace("/removeproduct", "").trim();
+        if (!id) {
+          await sendMessage(chatId, "Format:\n/removeproduct <id>\nGet ids from /listproducts");
+        } else {
+          const result = await productsCollection.deleteOne({ id });
+          await sendMessage(chatId, result.deletedCount ? "Product removed." : "No product found with that id.");
+        }
+      }
+    }
+
     if (text === "/start") {
       await sendMessage(chatId,
         "Welcome to CaliBaz Market! 🛍️\nBrowse categories, order what you need, or become a vendor.",
