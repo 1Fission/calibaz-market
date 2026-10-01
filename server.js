@@ -28,12 +28,13 @@ const LAND_HOUSING_INDEX = 3;
 const { MongoClient } = require("mongodb");
 const MONGO_URI = process.env.MONGO_URI;
 const client = new MongoClient(MONGO_URI);
-let productsCollection;
+let productsCollection, verifiedCollection;
 
 async function connectDB() {
   await client.connect();
   const db = client.db("calibaz");
   productsCollection = db.collection("products");
+  verifiedCollection = db.collection("verified_vendors");
   console.log("Connected to MongoDB");
 }
 connectDB().catch(err => console.error("MongoDB connection error:", err));
@@ -53,7 +54,7 @@ app.get("/", (req, res) => {
 app.get("/products", async (req, res) => {
   try {
     const products = await loadProducts();
-    res.json(products);
+    const vv = (await verifiedCollection.find({}).toArray()).map(v => v.vendor); res.json(products.map(p => ({ ...p, verified: vv.includes((p.vendor || "").toLowerCase()) })));
   } catch (err) {
     res.status(500).json({ error: "Could not load products" });
   }
@@ -65,6 +66,24 @@ app.post("/webhook", async (req, res) => {
   if (update.message) {
     const chatId = update.message.chat.id;
     const text = update.message.text || update.message.caption || "";
+
+    if (text.startsWith("/verify") || text.startsWith("/unverify")) {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const isVerify = text.startsWith("/verify");
+        const vendor = text.replace(/^\/(un)?verify/, "").trim().replace("@", "").toLowerCase();
+        if (!vendor) {
+          await sendMessage(chatId, "Format:\n/verify vendorusername\n/unverify vendorusername");
+        } else if (isVerify) {
+          await verifiedCollection.updateOne({ vendor }, { $set: { vendor } }, { upsert: true });
+          await sendMessage(chatId, `Verified: ${vendor} ✅`);
+        } else {
+          await verifiedCollection.deleteOne({ vendor });
+          await sendMessage(chatId, `Verification removed: ${vendor}`);
+        }
+      }
+    }
 
     if (text === "/listproducts" || text.startsWith("/removeproduct")) {
       if (!ADMIN_IDS.includes(update.message.from.id)) {
