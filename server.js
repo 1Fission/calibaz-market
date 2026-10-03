@@ -84,6 +84,10 @@ app.post("/webhook", async (req, res) => {
     const chatId = update.message.chat.id;
     const text = update.message.text || update.message.caption || "";
 
+    if (text === "/faq") {
+      await sendMessage(chatId, "Which FAQ do you need?", faqKeyboard());
+    }
+
     if (text.startsWith("/setcategory")) {
       if (!ADMIN_IDS.includes(update.message.from.id)) {
         await sendMessage(chatId, "You're not authorized to use this command.");
@@ -195,6 +199,16 @@ app.post("/webhook", async (req, res) => {
   if (update.callback_query) {
     const chatId = update.callback_query.message.chat.id;
     const data = update.callback_query.data;
+
+    if (data === "faq") {
+      await sendMessage(chatId, "Which FAQ do you need?", faqKeyboard());
+    }
+    if (data === "faq_buyers") {
+      await sendHtml(chatId, FAQ_BUYERS);
+    }
+    if (data === "faq_vendors") {
+      await sendHtml(chatId, FAQ_VENDORS);
+    }
 
     if (data === "become_vendor") {
       const userId = update.callback_query.from.id;
@@ -308,6 +322,7 @@ function mainMenuKeyboard() {
     inline_keyboard: [
       [{ text: "🛒 Open Market", web_app: { url: "https://1fission.github.io/calibaz-market/" } }],
       [{ text: "💼 Become a Vendor", callback_data: "become_vendor" }],
+      [{ text: "❓ FAQ", callback_data: "faq" }],
       [{ text: "🆘 Support", url: `https://t.me/${SUPPORT_USERNAME}` }]
     ]
   };
@@ -344,3 +359,75 @@ app.get("/image/:fileId", async (req, res) => {
     res.sendStatus(500);
   }
 });
+
+const FAQ_BUYERS = `<b>CaliBaz Market FAQ: Buyers</b>
+
+<b>How do I browse?</b>
+Open the market, then pick a category, a vendor, then a product.
+
+<b>Does it cost anything to buy?</b>
+No. Browsing and contacting vendors is free.
+
+<b>How do I order?</b>
+Tap "I'm Interested" on a product. It opens a chat with the vendor to agree on price, payment, and any customization.
+
+<b>How do I pay?</b>
+You pay the vendor directly, outside the bot. Once they confirm payment, arrange delivery or pickup in the same chat.
+
+<b>Can I use escrow?</b>
+Yes. Contact support (@FissionHelp) before you pay. Escrow is free for now.
+
+<b>What does the ✅ mean?</b>
+CaliBaz has vetted that vendor. It's a sign of trust, not a guarantee.
+
+<b>Market slow to open?</b>
+The first load after a quiet period can take up to a minute. Wait, or close and reopen.
+
+<b>Problem with an order?</b>
+Message support: @FissionHelp`;
+
+const FAQ_VENDORS = `<b>CaliBaz Market FAQ: Vendors</b>
+
+<b>How do I become a vendor?</b>
+Tap "Become a Vendor" in the main menu. You must join our channel @CalibazHQ first.
+
+<b>What does it cost?</b>
+A one-time fee of 57 Telegram Stars. Land &amp; Housing listings are free for now.
+
+<b>I don't have Telegram Stars.</b>
+Buy them in CaliBaz Market: open the Digital Services category and choose the Telegram Stars listing. You can also buy directly in Telegram, but it can cost more depending on your region because of local taxes.
+
+<b>What happens after I pay?</b>
+You get a "Chat with Admin" button. Send your product name, price, description, and photos, and our team lists it for you.
+
+<b>Can I list products myself?</b>
+Not yet. Our team adds listings so they look right and go live quickly.
+
+<b>How do buyers reach me?</b>
+When a buyer taps "I'm Interested", a chat opens with you. Agree on payment and delivery there, and confirm once you're paid.
+
+<b>Do you offer escrow?</b>
+Yes. Contact support (@FissionHelp). Escrow is free for now.
+
+<b>How do I get the ✅?</b>
+The team gives it after vetting. Ask @FissionHelp.
+
+<b>Change or remove a listing?</b>
+Message @FissionHelp with the product name and the change.`;
+
+async function sendHtml(chatId, html, keyboard) {
+  await fetch(`${TELEGRAM_API}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text: html, parse_mode: "HTML", reply_markup: keyboard })
+  });
+}
+
+function faqKeyboard() {
+  return {
+    inline_keyboard: [[
+      { text: "🛍️ For Buyers", callback_data: "faq_buyers" },
+      { text: "💼 For Vendors", callback_data: "faq_vendors" }
+    ]]
+  };
+}
