@@ -28,19 +28,19 @@ function isAdminInitData(initData) {
 }
 
 const CATEGORIES = [
+  "Custom/Handmade Requests",
+  "Digital Services",
+  "Herbarium & Herbal Products",
+  "Electronics & Gadgets",
   "Fruit Juice & Related Products",
   "Cake & Related Products",
-  "Herbarium & Herbal Products",
   "Land & Housing",
   "Fashion & Apparel",
   "Home & Lifestyle",
-  "Electronics & Gadgets",
   "Beauty & Personal Care",
-  "Digital Services",
-  "Food & Related Products",
-  "Custom/Handmade Requests"
+  "Food & Related Products"
 ];
-const LAND_HOUSING_INDEX = 3;
+const LAND_HOUSING_INDEX = CATEGORIES.indexOf("Land & Housing");
 
 const { MongoClient } = require("mongodb");
 const MONGO_URI = process.env.MONGO_URI;
