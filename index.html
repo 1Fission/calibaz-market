@@ -20,12 +20,14 @@
   .product .price { color:#f2c94c; font-weight:bold; margin-bottom:6px; }
   .product .desc { color:#9aa5b1; font-size:13px; margin-bottom:12px; }
   .product button { background:#2f8f4e; color:#fff; border:none; border-radius:8px; padding:10px 14px; font-size:14px; width:100%; }
+  .trust { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:13px; color:#9aa5b1; }
   .empty { color:#9aa5b1; font-size:14px; text-align:center; margin-top:30px; }
 </style>
 </head>
 <body>
   <h1>CaliBaz Market</h1>
   <p class="sub">Your trusted multi-vendor marketplace</p>
+  <div class="trust" onclick="Telegram.WebApp.openTelegramLink('https://t.me/FissionHelp?text=' + encodeURIComponent('Hi, I would like to use escrow on CaliBaz Market.'))">✅ Vetted vendors &nbsp;·&nbsp; 🔒 Free escrow &nbsp;·&nbsp; Tap to ask</div>
 
   <div id="categoriesView">
     <div id="categories"></div>
@@ -76,9 +78,41 @@
 
   const container = document.getElementById("categories");
 
+  const ICONS = {
+    "Custom/Handmade Requests": "🎁",
+    "Digital Services": "💻",
+    "Herbarium & Herbal Products": "🌿",
+    "Electronics & Gadgets": "📱",
+    "Fruit Juice & Related Products": "🍹",
+    "Cake & Related Products": "🎂",
+    "Land & Housing": "🏠",
+    "Fashion & Apparel": "👗",
+    "Home & Lifestyle": "🛋️",
+    "Beauty & Personal Care": "💄",
+    "Food & Related Products": "🍲"
+  };
+
+  function updateCounts(all) {
+    document.querySelectorAll("#categories .category[data-cat]").forEach(el => {
+      const name = el.dataset.cat;
+      const vendors = new Set(
+        all.filter(p => p.category === name && !/escrow/i.test(p.vendorName || ""))
+           .map(p => p.vendor)
+      );
+      const base = (ICONS[name] || "🛍️") + " " + name;
+      if (vendors.size === 0) {
+        el.textContent = base + " · coming soon";
+        el.style.opacity = "0.55";
+      } else {
+        el.textContent = base + " · " + vendors.size + (vendors.size === 1 ? " vendor" : " vendors");
+      }
+    });
+  }
+
   fetch("https://calibaz-backend.onrender.com/products", { headers: { "x-init-data": Telegram.WebApp.initData } })
     .then(r => r.json())
     .then(all => {
+      updateCounts(all);
       if (all.some(p => p.category === "Test Items (Admin Only)")) {
         const div = document.createElement("div");
         div.className = "category";
@@ -91,7 +125,7 @@
   categories.forEach(name => {
     const div = document.createElement("div");
     div.className = "category";
-    div.textContent = name;
+    div.dataset.cat = name; div.textContent = (ICONS[name] || "🛍️") + " " + name;
     div.addEventListener("click", () => showVendors(name));
     container.appendChild(div);
   });
