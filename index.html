@@ -21,6 +21,8 @@
   .product .desc { color:#9aa5b1; font-size:13px; margin-bottom:12px; }
   .product button { background:#2f8f4e; color:#fff; border:none; border-radius:8px; padding:10px 14px; font-size:14px; width:100%; }
   .trust { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:13px; color:#9aa5b1; }
+  .ad { display:none; position:relative; background:linear-gradient(135deg,#2a3644,#1b2530); border:1px solid #f2c94c; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:14px; }
+  .ad .adtag { font-size:10px; color:#f2c94c; letter-spacing:1px; margin-bottom:4px; }
   .search { width:100%; box-sizing:border-box; background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:12px 14px; color:#f2e9d8; font-size:15px; margin-bottom:14px; outline:none; }
   .sec { font-size:14px; font-weight:bold; margin:4px 0 8px; }
   .strip { display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; margin-bottom:14px; }
@@ -42,6 +44,7 @@
   <h1>CaliBaz Market</h1>
   <p class="sub">Your trusted multi-vendor marketplace</p>
   <div class="trust" onclick="Telegram.WebApp.openTelegramLink('https://t.me/FissionHelp?text=' + encodeURIComponent('Hi, I would like to use escrow on CaliBaz Market.'))">✅ Vetted vendors &nbsp;·&nbsp; 🔒 Free escrow &nbsp;·&nbsp; Tap to ask</div>
+  <div id="adBanner" class="ad"><div class="adtag">SPONSORED</div><div class="adtext"></div></div>
   <input id="searchBox" class="search" type="search" placeholder="🔍 Search products or vendors" autocomplete="off">
   <div id="searchResults" style="display:none;"></div>
   <div id="latestWrap" style="display:none;"><div class="sec">🆕 Latest listings</div><div id="latest" class="strip"></div></div>
@@ -94,6 +97,20 @@
   let currentCategoryProducts = [];
 
   const container = document.getElementById("categories");
+
+  fetch("https://calibaz-backend.onrender.com/ad")
+    .then(r => r.json())
+    .then(ad => {
+      if (!ad || !ad.text) return;
+      const el = document.getElementById("adBanner");
+      el.querySelector(".adtext").textContent = ad.text;
+      el.style.display = "block";
+      el.addEventListener("click", () => {
+        if (/^https:\/\/t\.me\//.test(ad.url)) Telegram.WebApp.openTelegramLink(ad.url);
+        else Telegram.WebApp.openLink(ad.url);
+      });
+    })
+    .catch(() => {});
 
   let searchData = [];
   const searchBox = document.getElementById("searchBox");
