@@ -606,22 +606,31 @@ app.get("/image/:fileId", async (req, res) => {
 const FAQ_BUYERS = `<b>CaliBaz Market FAQ: Buyers</b>
 
 <b>How do I browse?</b>
-Open the market, then pick a category, a vendor, then a product.
+Open the market, then pick a category, a vendor, then a product. Or use the search box at the top.
 
 <b>Does it cost anything to buy?</b>
 No. Browsing and contacting vendors is free.
 
 <b>How do I order?</b>
-Tap "I'm Interested" on a product. It opens a chat with the vendor to agree on price, payment, and any customization.
+Tap "I'm Interested" on a product. It opens a private chat with the vendor inside this bot. Agree on price, payment, and any customization there.
 
 <b>How do I pay?</b>
-You pay the vendor directly, outside the bot. Once they confirm payment, arrange delivery or pickup in the same chat.
+You pay the vendor directly, outside the bot. When the vendor confirms your payment, you'll get a "📦 I received it" button. Tap it once your order arrives to complete the deal.
+
+<b>I have several chats open.</b>
+Tap "↩️ Reply" under the message you're answering, then type your reply.
+
+<b>Are the chats private?</b>
+Deal chats are recorded and can be read by the CaliBaz team for escrow and dispute resolution. No one else can see them. Never share passwords or card details.
 
 <b>Can I use escrow?</b>
 Yes. Contact support (@FissionHelp) before you pay. Escrow is free for now.
 
 <b>What does the ✅ mean?</b>
 CaliBaz has vetted that vendor. It's a sign of trust, not a guarantee.
+
+<b>How long does a chat stay open?</b>
+A chat closes 7 days after the deal is completed, or after 14 days with no messages (you get a reminder first). You can start a new one any time by tapping "I'm Interested".
 
 <b>Market slow to open?</b>
 The first load after a quiet period can take up to a minute. Wait, or close and reopen.
@@ -647,7 +656,16 @@ You get a "Chat with Admin" button. Send your product name, price, description, 
 Not yet. Our team adds listings so they look right and go live quickly.
 
 <b>How do buyers reach me?</b>
-When a buyer taps "I'm Interested", a chat opens with you. Agree on payment and delivery there, and confirm once you're paid.
+When a buyer taps "I'm Interested", the bot opens a private deal chat between you and the buyer. Their messages arrive in this bot. Tap "↩️ Reply" under a message to answer that buyer, then type your reply.
+
+<b>Important: tap Start on this bot.</b>
+If you haven't started this bot, buyers can't reach you through deal chats and get a direct chat link instead. Open the bot and tap Start once.
+
+<b>How do I confirm payment?</b>
+Agree on payment in the deal chat. Once you've been paid, tap "✅ Payment received". The buyer then confirms with "📦 I received it" and the deal is complete.
+
+<b>Are the chats private?</b>
+Deal chats are recorded and can be read by the CaliBaz team for escrow and dispute resolution. No one else can see them.
 
 <b>Do you offer escrow?</b>
 Yes. Contact support (@FissionHelp). Escrow is free for now.
