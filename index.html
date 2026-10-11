@@ -21,6 +21,7 @@
   .product .desc { color:#9aa5b1; font-size:13px; margin-bottom:12px; }
   .product button { background:#2f8f4e; color:#fff; border:none; border-radius:8px; padding:10px 14px; font-size:14px; width:100%; }
   .trust { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:13px; color:#9aa5b1; }
+  .search { width:100%; box-sizing:border-box; background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:12px 14px; color:#f2e9d8; font-size:15px; margin-bottom:14px; outline:none; }
   .sec { font-size:14px; font-weight:bold; margin:4px 0 8px; }
   .strip { display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; margin-bottom:14px; }
   .lcard { flex:0 0 130px; background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:8px; }
@@ -41,6 +42,8 @@
   <h1>CaliBaz Market</h1>
   <p class="sub">Your trusted multi-vendor marketplace</p>
   <div class="trust" onclick="Telegram.WebApp.openTelegramLink('https://t.me/FissionHelp?text=' + encodeURIComponent('Hi, I would like to use escrow on CaliBaz Market.'))">✅ Vetted vendors &nbsp;·&nbsp; 🔒 Free escrow &nbsp;·&nbsp; Tap to ask</div>
+  <input id="searchBox" class="search" type="search" placeholder="🔍 Search products or vendors" autocomplete="off">
+  <div id="searchResults" style="display:none;"></div>
   <div id="latestWrap" style="display:none;"><div class="sec">🆕 Latest listings</div><div id="latest" class="strip"></div></div>
 
   <div id="categoriesView">
@@ -91,6 +94,50 @@
   let currentCategoryProducts = [];
 
   const container = document.getElementById("categories");
+
+  let searchData = [];
+  const searchBox = document.getElementById("searchBox");
+  const searchResults = document.getElementById("searchResults");
+  searchBox.addEventListener("input", () => {
+    const q = searchBox.value.trim().toLowerCase();
+    const cats = document.getElementById("categories");
+    const latestWrap = document.getElementById("latestWrap");
+    if (!q) {
+      searchResults.style.display = "none";
+      cats.style.display = "block";
+      latestWrap.style.display = document.getElementById("latest").children.length ? "block" : "none";
+      return;
+    }
+    cats.style.display = "none";
+    latestWrap.style.display = "none";
+    searchResults.style.display = "block";
+    searchResults.innerHTML = "";
+    const hits = searchData.filter(p =>
+      !/escrow/i.test(p.vendorName || "") &&
+      [p.name, p.description, p.vendorName, p.vendor, p.category].join(" ").toLowerCase().includes(q)
+    );
+    if (hits.length === 0) {
+      searchResults.innerHTML = '<div class="empty">No matches found.</div>';
+      return;
+    }
+    hits.slice(0, 30).forEach(p => {
+      const div = document.createElement("div");
+      div.className = "vendor";
+      const n = document.createElement("div");
+      n.textContent = p.name + (p.verified ? " ✅" : "");
+      const m = document.createElement("div");
+      m.style.cssText = "font-size:12px;color:#9aa5b1;margin-top:4px;";
+      m.textContent = (p.vendorName || p.vendor) + " · " + p.category;
+      div.appendChild(n);
+      div.appendChild(m);
+      div.addEventListener("click", () => {
+        searchBox.value = "";
+        searchBox.dispatchEvent(new Event("input"));
+        showVendors(p.category);
+      });
+      searchResults.appendChild(div);
+    });
+  });
 
   function renderLatest(all) {
     const items = all
@@ -158,6 +205,7 @@
     .then(all => {
       updateCounts(all);
       renderLatest(all);
+      searchData = all;
       if (all.some(p => p.category === "Test Items (Admin Only)")) {
         const div = document.createElement("div");
         div.className = "category";
