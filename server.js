@@ -111,7 +111,8 @@ app.post("/webhook", async (req, res) => {
           const vendorUser = vendorHandle ? await usersCollection.findOne({ username: vendorHandle.toLowerCase() }) : null;
           const existing = await dealsCollection.findOne({ productId, buyerChatId: chatId, status: "open" });
           if (existing) {
-            await sendDealMsg(chatId, `You already have an open chat for this product (Deal #${existing.dealId}). Just type here.`, existing.dealId);
+            await usersCollection.updateOne({ chatId }, { $set: { activeDealId: existing.dealId } });
+            await sendDealMsg(chatId, `You already have an open chat for this product. Just type your message here.`, existing.dealId);
           } else if (!vendorUser) {
             await sendDirectLink(chatId, vendorHandle, vendorLabel, product);
           } else if (vendorUser.chatId === chatId) {
@@ -126,14 +127,15 @@ app.post("/webhook", async (req, res) => {
               status: "open", paid: false, createdAt: Date.now(), lastActivity: Date.now()
             });
             await logDeal(dealId, "system", "System", `Deal opened: ${buyerName} and ${vendorLabel} about "${product.name}"`);
-            const reached = await sendDealMsg(vendorUser.chatId, `🛍️ New buyer for "${product.name}" (Deal #${dealId}).\n\nReply to this message to answer them. Messages are recorded for escrow and dispute resolution. When you've been paid, tap the button below.`, dealId, {
-              inline_keyboard: [[{ text: "✅ Payment received", callback_data: `dp_${dealId}` }]]
+            await usersCollection.updateOne({ chatId }, { $set: { activeDealId: dealId } });
+            const reached = await sendDealMsg(vendorUser.chatId, `🛍️ New buyer for "${product.name}".\n\nTap ↩️ Reply below to answer them. Messages are recorded for escrow and dispute resolution. When you've been paid, tap the button below.`, dealId, {
+              inline_keyboard: [[{ text: "✅ Payment received", callback_data: `dp_${dealId}` }], [{ text: "↩️ Reply", callback_data: `rp_${dealId}` }]]
             });
             if (!reached) {
               await dealsCollection.updateOne({ dealId }, { $set: { status: "closed", closedAt: Date.now(), closedReason: "vendor unreachable" } });
               await sendDirectLink(chatId, vendorHandle, vendorLabel, product);
             } else {
-              await sendDealMsg(chatId, `✅ Connected to ${vendorLabel} about "${product.name}" (Deal #${dealId}).\n\nType your message here and I'll pass it on. Messages here are recorded for escrow and dispute resolution. Want escrow? Ask @${SUPPORT_USERNAME}. Send /enddeal to cancel.`, dealId);
+              await sendDealMsg(chatId, `✅ Connected to ${vendorLabel} about "${product.name}".\n\nType your message here and I'll pass it on. Messages here are recorded for escrow and dispute resolution. Want escrow? Ask @${SUPPORT_USERNAME}. Send /enddeal to cancel.`, dealId);
             }
           }
         }
@@ -142,20 +144,20 @@ app.post("/webhook", async (req, res) => {
       if (text === "/enddeal") {
         const found = await findDealFor(chatId, update.message.reply_to_message);
         if (!found.deal) {
-          await sendMessage(chatId, found.count > 1 ? "You have more than one active deal. Reply to a message from the deal you want to end, then send /enddeal." : "You have no active deals.");
+          await sendMessage(chatId, found.count > 1 ? "You have more than one active chat. Tap ↩️ Reply under the chat you mean, then send /enddeal." : "You have no active deals.");
         } else {
           const d = found.deal;
           await dealsCollection.updateOne({ dealId: d.dealId }, { $set: { status: "closed", closedAt: Date.now(), closedReason: "ended" } });
           await logDeal(d.dealId, "system", "System", `Deal ended by ${chatId === d.buyerChatId ? "buyer" : "vendor"}`);
-          await sendDealMsg(d.buyerChatId, `Deal #${d.dealId} closed.`, d.dealId);
-          await sendDealMsg(d.vendorChatId, `Deal #${d.dealId} closed.`, d.dealId);
+          await sendDealMsg(d.buyerChatId, `Chat about "${d.productName}" closed.`, d.dealId);
+          await sendDealMsg(d.vendorChatId, `Chat about "${d.productName}" closed.`, d.dealId);
         }
       }
 
       if (text === "/paid" || text === "/received") {
         const found = await findDealFor(chatId, update.message.reply_to_message);
         if (!found.deal) {
-          await sendMessage(chatId, found.count > 1 ? "You have more than one active deal. Reply to a message from the deal you mean, then send the command." : "You have no active deals.");
+          await sendMessage(chatId, found.count > 1 ? "You have more than one active chat. Tap ↩️ Reply under the chat you mean, then send the command." : "You have no active deals.");
         } else {
           const d = found.deal;
           if (text === "/paid") {
@@ -185,9 +187,9 @@ app.post("/webhook", async (req, res) => {
             await logDeal(d.dealId, fromBuyer ? "buyer" : "vendor", label, m.text || m.caption || "", kind || "text");
             await dealsCollection.updateOne({ dealId: d.dealId }, { $set: { lastActivity: Date.now(), reminded: false } });
             if (!kind) {
-              await sendDealMsg(target, `💬 ${label} (Deal #${d.dealId}):\n${m.text}`, d.dealId);
+              await sendIncoming(target, `💬 ${label} · ${d.productName}:\n${m.text}`, d.dealId);
             } else {
-              await sendDealMsg(target, `📎 ${label} sent a file (Deal #${d.dealId}):`, d.dealId);
+              await sendIncoming(target, `📎 ${label} sent a file · ${d.productName}:`, d.dealId);
               const cp = await (await fetch(`${TELEGRAM_API}/copyMessage`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -207,7 +209,7 @@ app.post("/webhook", async (req, res) => {
             }
           }
         } else if (found.count > 1) {
-          await sendMessage(chatId, "You have more than one active deal. Please reply directly to a message from the deal you mean.");
+          await sendMessage(chatId, "You have more than one active chat. Tap ↩️ Reply under the message you're answering, then type your reply.");
         } else {
           const had = await dealsCollection.findOne({ $or: [{ buyerChatId: chatId }, { vendorChatId: chatId }] });
           if (had) await sendMessage(chatId, "You have no active deal. Tap I'm Interested in the market to start one.");
@@ -247,7 +249,7 @@ app.post("/webhook", async (req, res) => {
           } else {
             await dealsCollection.updateOne({ dealId: id }, { $set: { status: "closed", closedAt: Date.now(), closedReason: "admin" } });
             await logDeal(id, "system", "System", "Deal closed by CaliBaz admin");
-            const note = `Deal #${id} was closed by CaliBaz support. Contact @${SUPPORT_USERNAME} if you need help.`;
+            const note = `The chat about "${deal.productName}" was closed by CaliBaz support. Contact @${SUPPORT_USERNAME} if you need help.`;
             await sendDealMsg(deal.buyerChatId, note, id);
             await sendDealMsg(deal.vendorChatId, note, id);
             await sendMessage(chatId, "Deal closed.");
@@ -410,6 +412,16 @@ app.post("/webhook", async (req, res) => {
           { $set: { chatId: cbUser.id, username: (cbUser.username || "").toLowerCase(), name: cbUser.first_name || "" } },
           { upsert: true }
         );
+      }
+      if (data.startsWith("rp_")) {
+        const rpId = data.slice(3);
+        const rd = await dealsCollection.findOne({ dealId: rpId });
+        if (!isActive(rd) || (cbUser.id !== rd.buyerChatId && cbUser.id !== rd.vendorChatId)) {
+          await sendMessage(chatId, "This chat is closed.");
+        } else {
+          await usersCollection.updateOne({ chatId: cbUser.id }, { $set: { activeDealId: rpId } });
+          await sendMessage(chatId, `↩️ Replying about "${rd.productName}". Type your message now.`);
+        }
       }
       if (data.startsWith("dp_") || data.startsWith("dr_")) {
         const dealId = data.slice(3);
@@ -709,8 +721,16 @@ async function findDealFor(uid, replied) {
     const map = await relayCollection.findOne({ chatId: uid, messageId: replied.message_id });
     if (map) {
       const d = await dealsCollection.findOne({ dealId: map.dealId });
-      if (isActive(d)) return { deal: d, count: 1 };
+      if (isActive(d) && (d.buyerChatId === uid || d.vendorChatId === uid)) {
+        await usersCollection.updateOne({ chatId: uid }, { $set: { activeDealId: d.dealId } });
+        return { deal: d, count: 1 };
+      }
     }
+  }
+  const user = await usersCollection.findOne({ chatId: uid });
+  if (user && user.activeDealId) {
+    const a = await dealsCollection.findOne({ dealId: user.activeDealId });
+    if (isActive(a) && (a.buyerChatId === uid || a.vendorChatId === uid)) return { deal: a, count: 1 };
   }
   const mine = await dealsCollection.find({ $and: [activeFilter(), { $or: [{ buyerChatId: uid }, { vendorChatId: uid }] }] }).toArray();
   if (mine.length === 1) return { deal: mine[0], count: 1 };
@@ -720,8 +740,8 @@ async function findDealFor(uid, replied) {
 async function markPaid(d) {
   await dealsCollection.updateOne({ dealId: d.dealId }, { $set: { paid: true, paidAt: Date.now() } });
   await logDeal(d.dealId, "system", "System", "Vendor confirmed payment received");
-  await sendDealMsg(d.vendorChatId, `✅ Payment confirmed for Deal #${d.dealId}. Arrange delivery here.`, d.dealId);
-  await sendDealMsg(d.buyerChatId, `✅ ${d.vendorName} confirmed your payment (Deal #${d.dealId}). When your order arrives, tap the button below.`, d.dealId, {
+  await sendDealMsg(d.vendorChatId, `✅ Payment confirmed for "${d.productName}". Arrange delivery here.`, d.dealId);
+  await sendDealMsg(d.buyerChatId, `✅ ${d.vendorName} confirmed your payment for "${d.productName}". When your order arrives, tap the button below.`, d.dealId, {
     inline_keyboard: [[{ text: "📦 I received it", callback_data: `dr_${d.dealId}` }]]
   });
 }
@@ -729,7 +749,7 @@ async function markPaid(d) {
 async function markReceived(d) {
   await dealsCollection.updateOne({ dealId: d.dealId }, { $set: { status: "completed", completedAt: Date.now() } });
   await logDeal(d.dealId, "system", "System", "Buyer confirmed receipt: deal completed");
-  const note = `🎉 Deal #${d.dealId} completed. You can still message here for ${GRACE_DAYS} days, then this chat closes.`;
+  const note = `🎉 "${d.productName}" deal completed. You can still message here for ${GRACE_DAYS} days, then this chat closes.`;
   await sendDealMsg(d.buyerChatId, note, d.dealId);
   await sendDealMsg(d.vendorChatId, note, d.dealId);
 }
@@ -760,12 +780,12 @@ async function checkStaleDeals() {
     if (idle >= STALE_DAYS * DAY_MS) {
       await dealsCollection.updateOne({ dealId: d.dealId }, { $set: { status: "closed", closedAt: now, closedReason: "inactive" } });
       await logDeal(d.dealId, "system", "System", `Closed automatically after ${STALE_DAYS} days without messages`);
-      const note = `Deal #${d.dealId} was closed after ${STALE_DAYS} days without messages. Tap I'm Interested in the market to start a new one.`;
+      const note = `The chat about "${d.productName}" was closed after ${STALE_DAYS} days without messages. Tap I'm Interested in the market to start a new one.`;
       await sendDealMsg(d.buyerChatId, note, d.dealId);
       await sendDealMsg(d.vendorChatId, note, d.dealId);
     } else if (idle >= REMIND_DAYS * DAY_MS && !d.reminded) {
       await dealsCollection.updateOne({ dealId: d.dealId }, { $set: { reminded: true } });
-      const note = `Deal #${d.dealId} closes in ${STALE_DAYS - REMIND_DAYS} days. Send any message to keep it open.`;
+      const note = `Your chat about "${d.productName}" closes in ${STALE_DAYS - REMIND_DAYS} days. Send any message to keep it open.`;
       await sendDealMsg(d.buyerChatId, note, d.dealId);
       await sendDealMsg(d.vendorChatId, note, d.dealId);
     }
@@ -774,3 +794,9 @@ async function checkStaleDeals() {
 
 setInterval(() => checkStaleDeals().catch(e => console.error(e)), 6 * 60 * 60 * 1000);
 setTimeout(() => checkStaleDeals().catch(e => console.error(e)), 60 * 1000);
+
+async function sendIncoming(chatId, text, dealId) {
+  const ok = await sendDealMsg(chatId, text, dealId, { inline_keyboard: [[{ text: "↩️ Reply", callback_data: `rp_${dealId}` }]] });
+  await usersCollection.updateOne({ chatId, activeDealId: { $nin: [null, dealId] } }, { $set: { activeDealId: null } });
+  return ok;
+}
