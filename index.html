@@ -37,18 +37,19 @@
   .strip { max-height:210px; overflow-y:hidden; }
   .lcard img { display:none !important; }
   .strip { max-height:none; }
+  .trust { background:none !important; border:none !important; padding:0 2px !important; margin-bottom:12px !important; font-size:12px !important; }
   .empty { color:#9aa5b1; font-size:14px; text-align:center; margin-top:30px; }
 </style>
 </head>
 <body>
   <h1>CaliBaz Market</h1>
   <p class="sub">Your trusted multi-vendor marketplace</p>
-  <div class="trust" onclick="Telegram.WebApp.openTelegramLink('https://t.me/FissionHelp?text=' + encodeURIComponent('Hi, I would like to use escrow on CaliBaz Market.'))">✅ Vetted vendors &nbsp;·&nbsp; 🔒 Free escrow &nbsp;·&nbsp; Tap to ask</div>
-  <div id="adBanner" class="ad"><div class="adtag">SPONSORED</div><div class="adtext"></div></div>
+
   <input id="searchBox" class="search" type="search" placeholder="🔍 Search products or vendors" autocomplete="off">
   <div id="searchResults" style="display:none;"></div>
+  <div class="trust" onclick="Telegram.WebApp.openTelegramLink('https://t.me/FissionHelp?text=' + encodeURIComponent('Hi, I would like to use escrow on CaliBaz Market.'))">✅ Vetted vendors &nbsp;·&nbsp; 🔒 Free escrow &nbsp;·&nbsp; Tap to ask</div>
   <div id="latestWrap" style="display:none;"><div class="sec">🆕 Latest listings</div><div id="latest" class="strip"></div></div>
-
+  <div id="adBanner" class="ad"><div class="adtag">SPONSORED</div><div class="adtext"></div></div>
   <div id="categoriesView">
     <div id="categories"></div>
   </div>
