@@ -314,6 +314,7 @@
       `;
       div.querySelector("button").addEventListener("click", () => {
         Telegram.WebApp.openTelegramLink("https://t.me/CaliBazbot?start=deal_" + encodeURIComponent(p.id));
+        setTimeout(() => Telegram.WebApp.close(), 300);
       });
       productsContainer.appendChild(div);
     });
