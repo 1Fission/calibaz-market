@@ -45,13 +45,14 @@ const LAND_HOUSING_INDEX = CATEGORIES.indexOf("Land & Housing");
 const { MongoClient } = require("mongodb");
 const MONGO_URI = process.env.MONGO_URI;
 const client = new MongoClient(MONGO_URI);
-let productsCollection, verifiedCollection;
+let productsCollection, verifiedCollection, adsCollection;
 
 async function connectDB() {
   await client.connect();
   const db = client.db("calibaz");
   productsCollection = db.collection("products");
   verifiedCollection = db.collection("verified_vendors");
+  adsCollection = db.collection("ads");
   console.log("Connected to MongoDB");
 }
 connectDB().catch(err => console.error("MongoDB connection error:", err));
@@ -83,6 +84,23 @@ app.post("/webhook", async (req, res) => {
   if (update.message) {
     const chatId = update.message.chat.id;
     const text = update.message.text || update.message.caption || "";
+
+    if (text.startsWith("/setad") || text === "/clearad") {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else if (text === "/clearad") {
+        await adsCollection.deleteOne({ _id: "current" });
+        await sendMessage(chatId, "Ad removed.");
+      } else {
+        const [adText, adUrl] = text.replace("/setad", "").split("|").map(s => s.trim());
+        if (!adText || !adUrl || !/^https:\/\//.test(adUrl)) {
+          await sendMessage(chatId, "Format:\n/setad Ad text | https://t.me/username");
+        } else {
+          await adsCollection.updateOne({ _id: "current" }, { $set: { text: adText, url: adUrl } }, { upsert: true });
+          await sendMessage(chatId, "Ad is live ✅");
+        }
+      }
+    }
 
     if (text === "/faq") {
       await sendMessage(chatId, "Which FAQ do you need?", faqKeyboard());
@@ -431,3 +449,12 @@ function faqKeyboard() {
     ]]
   };
 }
+
+app.get("/ad", async (req, res) => {
+  try {
+    const ad = await adsCollection.findOne({ _id: "current" });
+    res.json(ad ? { text: ad.text, url: ad.url } : null);
+  } catch (e) {
+    res.json(null);
+  }
+});
