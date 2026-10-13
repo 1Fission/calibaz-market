@@ -102,9 +102,18 @@ app.post("/webhook", async (req, res) => {
 
       if (text.startsWith("/start deal_")) {
         const productId = text.replace("/start deal_", "").trim();
-        const product = await productsCollection.findOne({ id: productId });
+        const memberOk = await isChannelMember(fromUser.id);
+        if (!memberOk) {
+          await sendMessage(chatId, "To chat with vendors on CaliBaz, please join our channel first 👇", {
+            inline_keyboard: [
+              [{ text: "📢 Join CaliBaz Channel", url: `https://t.me/${CHANNEL_USERNAME}` }],
+              [{ text: "✅ I've Joined - Continue", url: `https://t.me/CaliBazbot?start=deal_${productId}` }]
+            ]
+          });
+        }
+        const product = memberOk ? await productsCollection.findOne({ id: productId }) : null;
         if (!product) {
-          await sendMessage(chatId, "Sorry, that listing is no longer available.");
+          if (memberOk) await sendMessage(chatId, "Sorry, that listing is no longer available.");
         } else {
           const vendorHandle = (product.vendor || "").replace("@", "");
           const vendorLabel = product.vendorName || vendorHandle;
