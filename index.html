@@ -281,6 +281,8 @@
         const div = document.createElement("div");
         div.className = "vendor";
         div.textContent = vendorMap[vendorUsername];
+        const rp = currentCategoryProducts.find(p => (p.vendor || "").replace("@", "").toLowerCase() === String(vendorUsername).replace("@", "").toLowerCase() && p.ratingCount > 0);
+        if (rp) { const rs = document.createElement("span"); rs.style.cssText = "float:right;color:#f2c94c;font-size:13px;"; rs.textContent = "⭐ " + rp.ratingAvg.toFixed(1) + " (" + rp.ratingCount + ")"; div.appendChild(rs); }
         div.addEventListener("click", () => showProducts(vendorUsername, vendorMap[vendorUsername]));
         vendorsContainer.appendChild(div);
       });
