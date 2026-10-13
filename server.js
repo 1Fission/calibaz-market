@@ -45,7 +45,7 @@ const LAND_HOUSING_INDEX = CATEGORIES.indexOf("Land & Housing");
 const { MongoClient } = require("mongodb");
 const MONGO_URI = process.env.MONGO_URI;
 const client = new MongoClient(MONGO_URI);
-let productsCollection, verifiedCollection, adsCollection, usersCollection, dealsCollection, relayCollection, logCollection, alertsCollection;
+let ratingsCollection, productsCollection, verifiedCollection, adsCollection, usersCollection, dealsCollection, relayCollection, logCollection, alertsCollection;
 
 async function connectDB() {
   await client.connect();
@@ -58,6 +58,7 @@ async function connectDB() {
   relayCollection = db.collection("relay_map");
   logCollection = db.collection("deal_messages");
   alertsCollection = db.collection("vendor_alerts");
+  ratingsCollection = db.collection("ratings");
   console.log("Connected to MongoDB");
 }
 connectDB().catch(err => console.error("MongoDB connection error:", err));
@@ -455,6 +456,21 @@ app.post("/webhook", async (req, res) => {
           { upsert: true }
         );
       }
+      if (data.startsWith("rt_")) {
+        const parts2 = data.split("_");
+        const rtDeal = parts2[1];
+        const stars = parseInt(parts2[2], 10);
+        const rd2 = await dealsCollection.findOne({ dealId: rtDeal });
+        if (!rd2 || cbUser.id !== rd2.buyerChatId || !(stars >= 1 && stars <= 5)) {
+          await sendMessage(chatId, "Only the buyer can rate this deal.");
+        } else {
+          const prod = await productsCollection.findOne({ id: rd2.productId });
+          const key = ((prod && prod.vendor) || rd2.vendorName || "").replace("@", "").toLowerCase();
+          await ratingsCollection.updateOne({ dealId: rtDeal }, { $set: { dealId: rtDeal, vendor: key, stars, at: Date.now() } }, { upsert: true });
+          await sendMessage(chatId, `Thanks! You rated ${rd2.vendorName} ${stars}⭐`);
+        }
+      }
+
       if (data.startsWith("rp_")) {
         const rpId = data.slice(3);
         const rd = await dealsCollection.findOne({ dealId: rpId });
@@ -812,6 +828,9 @@ async function markReceived(d) {
   const note = `🎉 "${d.productName}" deal completed. You can still message here for ${GRACE_DAYS} days, then this chat closes.`;
   await sendDealMsg(d.buyerChatId, note, d.dealId);
   await sendDealMsg(d.vendorChatId, note, d.dealId);
+  try {
+    await sendDealMsg(d.buyerChatId, `⭐ How was your experience with ${d.vendorName}? Tap a rating:`, d.dealId, { inline_keyboard: [[1, 2, 3, 4, 5].map(n => ({ text: `${n}⭐`, callback_data: `rt_${d.dealId}_${n}` }))] });
+  } catch (e) { console.error(e); }
 }
 
 async function alertAdminsOnce(vendorHandle, text) {
