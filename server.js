@@ -78,7 +78,7 @@ app.get("/", (req, res) => {
 app.get("/products", async (req, res) => {
   try {
     const products = await loadProducts();
-    const isAdmin = isAdminInitData(req.headers["x-init-data"] || ""); const vv = (await verifiedCollection.find({}).toArray()).map(v => v.vendor); res.json(products.filter(p => isAdmin || p.category !== TEST_CATEGORY).map(p => ({ ...p, verified: vv.includes((p.vendor || "").toLowerCase()) })));
+    const isAdmin = isAdminInitData(req.headers["x-init-data"] || ""); const vv = (await verifiedCollection.find({}).toArray()).map(v => v.vendor); const rtAgg = await ratingsCollection.aggregate([{ $group: { _id: "$vendor", avg: { $avg: "$stars" }, n: { $sum: 1 } } }]).toArray(); const rtMap = {}; rtAgg.forEach(r => { rtMap[r._id] = r; }); res.json(products.filter(p => isAdmin || p.category !== TEST_CATEGORY).map(p => ({ ...p, verified: vv.includes((p.vendor || "").toLowerCase()), ratingAvg: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).avg || null, ratingCount: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).n || 0 })));
   } catch (err) {
     res.status(500).json({ error: "Could not load products" });
   }
