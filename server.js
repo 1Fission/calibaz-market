@@ -100,6 +100,10 @@ app.post("/webhook", async (req, res) => {
       }
       const isAdminUser = !!fromUser && ADMIN_IDS.includes(fromUser.id);
 
+      if (text === "/start vendor") {
+        await sendMessage(chatId, "You're set up as a CaliBaz vendor ✅\n\nWhen a buyer taps I'm Interested on your product, their messages arrive here. Tap ↩️ Reply under a message to answer them.");
+      }
+
       if (text.startsWith("/start deal_")) {
         const productId = text.replace("/start deal_", "").trim();
         const memberOk = await isChannelMember(fromUser.id);
@@ -147,6 +151,29 @@ app.post("/webhook", async (req, res) => {
               await sendDealMsg(chatId, `✅ Connected to ${vendorLabel} about "${product.name}".\n\nType your message here and I'll pass it on. Messages here are recorded for escrow and dispute resolution. Want escrow? Ask @${SUPPORT_USERNAME}. Send /enddeal to cancel.`, dealId);
             }
           }
+        }
+      }
+
+      if (text === "/vendors") {
+        if (!isAdminUser) {
+          await sendMessage(chatId, "You're not authorized to use this command.");
+        } else {
+          const prods = await productsCollection.find({}).toArray();
+          const seen = new Map();
+          for (const p of prods) {
+            const h = (p.vendor || "").replace("@", "").toLowerCase();
+            const key = h || ("name:" + (p.vendorName || ""));
+            if (!seen.has(key)) seen.set(key, { handle: h, label: p.vendorName || h || "Unknown" });
+          }
+          const handles = [...seen.values()].map(v => v.handle).filter(Boolean);
+          const started = await usersCollection.find({ username: { $in: handles } }).toArray();
+          const startedSet = new Set(started.map(u => u.username));
+          const rows = [...seen.values()].map(v => {
+            const ok = v.handle && startedSet.has(v.handle);
+            return `${ok ? "✅ Connected" : "⚠️ Not started"} | ${v.label}${v.handle ? " (@" + v.handle + ")" : " (no username)"}`;
+          });
+          rows.sort();
+          await sendMessage(chatId, rows.length ? `Vendors: ${rows.length}\n\n` + rows.join("\n") : "No vendors yet.");
         }
       }
 
@@ -395,7 +422,12 @@ app.post("/webhook", async (req, res) => {
           );
         } else {
           const [category, name, price, description, vendor, vendorName] = parts;
-          try {
+          const force = (parts[6] || "").toLowerCase() === "force";
+          const handle = (vendor || "").replace("@", "").toLowerCase();
+          const started = handle ? await usersCollection.findOne({ username: handle }) : null;
+          if (!started && !force) {
+            await sendMessage(chatId, `⚠️ ${vendorName} (@${handle}) hasn't started @CaliBazbot yet, so buyers can't reach them through deal chats.\n\nForward them this link and ask them to tap Start:\nhttps://t.me/CaliBazbot?start=vendor\n\nThen run /addproduct again.\n\nTo list them anyway (buyers get a direct chat link instead), add | force at the end.`);
+          } else try {
             await saveProduct({
               id: Date.now().toString(),
               category, name, price, description, vendor, vendorName,
