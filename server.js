@@ -361,11 +361,12 @@ app.post("/webhook", async (req, res) => {
       }
     }
 
-    if (text === "/listproducts" || text.startsWith("/removeproduct")) {
+    if (text === "/listproducts" || text.startsWith("/listproducts ") || text.startsWith("/removeproduct")) {
       if (!ADMIN_IDS.includes(update.message.from.id)) {
         await sendMessage(chatId, "You're not authorized to use this command.");
-      } else if (text === "/listproducts") {
-        const all = await loadProducts();
+      } else if (text === "/listproducts" || text.startsWith("/listproducts ")) {
+        const q = text.replace("/listproducts", "").trim().toLowerCase().replace("@", "");
+          const all = (await loadProducts()).filter(p => !q || [p.vendor, p.vendorName].join(" ").toLowerCase().includes(q));
         if (all.length === 0) {
           await sendMessage(chatId, "No products yet.");
         } else {
