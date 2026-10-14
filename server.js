@@ -685,7 +685,13 @@ Deal chats are recorded and can be read by the CaliBaz team for escrow and dispu
 Yes. Contact support (@FissionHelp) before you pay. Escrow is free for now.
 
 <b>What does the ✅ mean?</b>
-CaliBaz has vetted that vendor. It's a sign of trust, not a guarantee.
+CaliBaz has vetted that vendor. It's a sign of trust, not a guarantee. The ⭐ number is the average rating from buyers.
+
+<b>Can I rate a vendor?</b>
+Yes. After you tap "I received it", the bot asks for a 1-5 star rating. Vendor averages show next to their name in the market.
+
+<b>Do I need to join the channel?</b>
+Yes. To chat with a vendor you must join @CalibazHQ first. The bot will remind you if you haven't.
 
 <b>How long does a chat stay open?</b>
 A chat closes 7 days after the deal is completed, or after 14 days with no messages (you get a reminder first). You can start a new one any time by tapping "I'm Interested".
@@ -717,7 +723,8 @@ Not yet. Our team adds listings so they look right and go live quickly.
 When a buyer taps "I'm Interested", the bot opens a private deal chat between you and the buyer. Their messages arrive in this bot. Tap "↩️ Reply" under a message to answer that buyer, then type your reply.
 
 <b>Important: tap Start on this bot.</b>
-If you haven't started this bot, buyers can't reach you through deal chats and get a direct chat link instead. Open the bot and tap Start once.
+If you haven't started this bot, buyers can't reach you through deal chats and get a direct chat link instead. Open this link and tap Start once: https://t.me/CaliBazbot?start=vendor
+Listings can only be added after you've tapped Start.
 
 <b>How do I confirm payment?</b>
 Agree on payment in the deal chat. Once you've been paid, tap "✅ Payment received". The buyer then confirms with "📦 I received it" and the deal is complete.
@@ -727,6 +734,9 @@ Deal chats are recorded and can be read by the CaliBaz team for escrow and dispu
 
 <b>Do you offer escrow?</b>
 Yes. Contact support (@FissionHelp). Escrow is free for now.
+
+<b>Will I be rated?</b>
+Yes. Buyers rate you after each completed deal, and your average shows next to your name. Deliver well and it builds trust.
 
 <b>How do I get the ✅?</b>
 The team gives it after vetting. Ask @FissionHelp.
