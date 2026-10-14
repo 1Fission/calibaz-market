@@ -150,7 +150,7 @@ app.post("/webhook", async (req, res) => {
               await dealsCollection.updateOne({ dealId }, { $set: { status: "closed", closedAt: Date.now(), closedReason: "vendor unreachable" } });
               await sendDirectLink(chatId, vendorHandle, vendorLabel, product);
             } else {
-              await sendDealMsg(chatId, `✅ Connected to ${vendorLabel} about "${product.name}".\n\nType your message here and I'll pass it on. Messages here are recorded for escrow and dispute resolution. Want escrow? Ask @${SUPPORT_USERNAME}. Send /enddeal to cancel.`, dealId);
+              await sendDealMsg(chatId, `✅ Connected to ${vendorLabel} about "${product.name}".\n\nType your message here and I'll pass it on. Messages here are recorded for escrow and dispute resolution. Want escrow? Ask @${SUPPORT_USERNAME}. Send /enddeal to cancel.\n\nProblem with the vendor? Tap 🚩 below or send /report.`, dealId, { inline_keyboard: [[{ text: "🚩 Report a problem", callback_data: `rpt_${dealId}` }]] });
             }
           }
         }
@@ -220,7 +220,8 @@ app.post("/webhook", async (req, res) => {
 
       if (text === "/cancelreport") {
         await usersCollection.updateOne({ chatId }, { $set: { reportDealId: null } });
-        await sendMessage(chatId, "Report cancelled.");
+        await usersCollection.updateOne({ chatId }, { $set: { commentDealId: null } });
+        await sendMessage(chatId, "Cancelled.");
       }
 
       if (text === "/report") {
@@ -280,6 +281,18 @@ app.post("/webhook", async (req, res) => {
             for (const adminId of ADMIN_IDS) await sendMessage(adminId, alertText);
             await sendMessage(chatId, "Thanks. Your report was sent to the CaliBaz team and we'll look into it.");
           }
+        }
+      }
+
+      if (!reportHandled && !text.startsWith("/") && text && update.message.chat.type === "private") {
+        const cu = await usersCollection.findOne({ chatId });
+        if (cu && cu.commentDealId && Date.now() - (cu.commentAt || 0) < 10 * 60 * 1000) {
+          reportHandled = true;
+          const cd = cu.commentDealId;
+          await usersCollection.updateOne({ chatId }, { $set: { commentDealId: null } });
+          await ratingsCollection.updateOne({ dealId: cd }, { $set: { comment: text } });
+          await logDeal(cd, "system", "System", "Buyer left a rating comment: " + text);
+          await sendMessage(chatId, "Thanks for the comment. It goes to the CaliBaz team.");
         }
       }
 
@@ -541,6 +554,17 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (data.startsWith("rc_")) {
+        const rcId = data.slice(3);
+        const rcd = await dealsCollection.findOne({ dealId: rcId });
+        if (!rcd || cbUser.id !== rcd.buyerChatId) {
+          await sendMessage(chatId, "Only the buyer can comment on this deal.");
+        } else {
+          await usersCollection.updateOne({ chatId: cbUser.id }, { $set: { commentDealId: rcId, commentAt: Date.now() } });
+          await sendMessage(chatId, `💬 Type your comment about ${rcd.vendorName} in one message. Only the CaliBaz team sees it. Send /cancelreport to stop.`);
+        }
+      }
+
       if (data.startsWith("rt_")) {
         const parts2 = data.split("_");
         const rtDeal = parts2[1];
@@ -552,7 +576,11 @@ app.post("/webhook", async (req, res) => {
           const prod = await productsCollection.findOne({ id: rd2.productId });
           const key = ((prod && prod.vendor) || rd2.vendorName || "").replace("@", "").toLowerCase();
           await ratingsCollection.updateOne({ dealId: rtDeal }, { $set: { dealId: rtDeal, vendor: key, stars, at: Date.now() } }, { upsert: true });
-          await sendMessage(chatId, `Thanks! You rated ${rd2.vendorName} ${stars}⭐`);
+          if (stars <= 2) {
+            await sendMessage(chatId, `You rated ${rd2.vendorName} ${stars}⭐. Sorry it fell short. Want to tell the CaliBaz team what went wrong?`, { inline_keyboard: [[{ text: "🚩 Report a problem", callback_data: `rpt_${rtDeal}` }]] });
+          } else {
+            await sendMessage(chatId, `Thanks! You rated ${rd2.vendorName} ${stars}⭐`, { inline_keyboard: [[{ text: "💬 Add a comment", callback_data: `rc_${rtDeal}` }]] });
+          }
         }
       }
 
