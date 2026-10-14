@@ -575,8 +575,12 @@ app.post("/webhook", async (req, res) => {
         } else {
           const prod = await productsCollection.findOne({ id: rd2.productId });
           const key = ((prod && prod.vendor) || rd2.vendorName || "").replace("@", "").toLowerCase();
-          await ratingsCollection.updateOne({ dealId: rtDeal }, { $set: { dealId: rtDeal, vendor: key, stars, at: Date.now() } }, { upsert: true });
-          if (stars <= 2) {
+          const prevRt = await ratingsCollection.findOne({ dealId: rtDeal });
+          const rtLocked = !!prevRt && Date.now() - (prevRt.firstAt || prevRt.at || 0) > 10 * 60 * 1000;
+          if (!rtLocked) await ratingsCollection.updateOne({ dealId: rtDeal }, { $set: { dealId: rtDeal, vendor: key, stars, at: Date.now() }, $setOnInsert: { firstAt: Date.now() } }, { upsert: true });
+          if (rtLocked) {
+            await sendMessage(chatId, "You've already rated this deal. Ratings lock 10 minutes after you submit.");
+          } else if (stars <= 2) {
             await sendMessage(chatId, `You rated ${rd2.vendorName} ${stars}⭐. Sorry it fell short. Want to tell the CaliBaz team what went wrong?`, { inline_keyboard: [[{ text: "🚩 Report a problem", callback_data: `rpt_${rtDeal}` }]] });
           } else {
             await sendMessage(chatId, `Thanks! You rated ${rd2.vendorName} ${stars}⭐`, { inline_keyboard: [[{ text: "💬 Add a comment", callback_data: `rc_${rtDeal}` }]] });
