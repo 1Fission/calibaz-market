@@ -209,6 +209,14 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (text === "/digest") {
+        if (!isAdminUser) {
+          await sendMessage(chatId, "You're not authorized to use this command.");
+        } else {
+          await sendMessage(chatId, await buildDigest(Date.now() - DIGEST_DAYS * DAY_MS));
+        }
+      }
+
       if (text === "/enddeal") {
         const found = await findDealFor(chatId, update.message.reply_to_message);
         if (!found.deal) {
@@ -920,3 +928,46 @@ async function sendIncoming(chatId, text, dealId) {
   await usersCollection.updateOne({ chatId, activeDealId: { $nin: [null, dealId] } }, { $set: { activeDealId: null } });
   return ok;
 }
+
+const DIGEST_DAYS = 3;
+
+async function buildDigest(since) {
+  const days = Math.max(1, Math.round((Date.now() - since) / DAY_MS));
+  const newDeals = await dealsCollection.countDocuments({ createdAt: { $gte: since } });
+  const paid = await dealsCollection.countDocuments({ paidAt: { $gte: since } });
+  const done = await dealsCollection.countDocuments({ completedAt: { $gte: since } });
+  const openNow = await dealsCollection.countDocuments({ status: "open" });
+  const msgs = await logCollection.countDocuments({ at: { $gte: since }, role: { $in: ["buyer", "vendor"] } });
+  const rts = await ratingsCollection.find({ at: { $gte: since } }).toArray();
+  const avg = rts.length ? (rts.reduce((a, r) => a + r.stars, 0) / rts.length).toFixed(1) : null;
+  const prods = await productsCollection.find({}).toArray();
+  const handles = [...new Set(prods.map(p => (p.vendor || "").replace("@", "").toLowerCase()).filter(Boolean))];
+  const started = await usersCollection.find({ username: { $in: handles } }).toArray();
+  const startedSet = new Set(started.map(u => u.username));
+  const notStarted = handles.filter(h => !startedSet.has(h)).length;
+  return [
+    "🗓 CaliBaz digest · last " + days + (days === 1 ? " day" : " days"),
+    "",
+    "New deals: " + newDeals,
+    "Payments confirmed: " + paid,
+    "Deals completed: " + done,
+    "Messages relayed: " + msgs,
+    "New ratings: " + (avg ? rts.length + " (avg ⭐ " + avg + ")" : "0"),
+    "",
+    "Open deals now: " + openNow,
+    "Vendors not started: " + notStarted
+  ].join("\n");
+}
+
+async function checkDigest() {
+  const doc = await alertsCollection.findOne({ vendor: "__digest__" });
+  const last = doc ? doc.at : 0;
+  if (Date.now() - last < DIGEST_DAYS * DAY_MS) return;
+  const since = last || Date.now() - DIGEST_DAYS * DAY_MS;
+  const text = await buildDigest(since);
+  await alertsCollection.updateOne({ vendor: "__digest__" }, { $set: { vendor: "__digest__", at: Date.now() } }, { upsert: true });
+  for (const adminId of ADMIN_IDS) await sendMessage(adminId, text);
+}
+
+setInterval(() => checkDigest().catch(e => console.error(e)), 60 * 60 * 1000);
+setTimeout(() => checkDigest().catch(e => console.error(e)), 90 * 1000);
