@@ -178,6 +178,37 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (text === "/stats" || text.startsWith("/stats ")) {
+        if (!isAdminUser) {
+          await sendMessage(chatId, "You're not authorized to use this command.");
+        } else {
+          const q = text.replace("/stats", "").trim().toLowerCase().replace("@", "");
+          const prods = await productsCollection.find({}).toArray();
+          const match = q ? prods.filter(p => [p.vendor, p.vendorName].join(" ").toLowerCase().includes(q)) : prods;
+          if (q && match.length === 0) {
+            await sendMessage(chatId, "No vendor found matching that. Try /vendors to see the list.");
+          } else {
+            const keyOf = p => (p.vendor || "").replace("@", "").toLowerCase();
+            const vKeys = new Set(match.map(p => keyOf(p) || ("name:" + (p.vendorName || ""))));
+            const handles = [...vKeys].filter(k => !k.startsWith("name:"));
+            const deals = await dealsCollection.find(q ? { productId: { $in: match.map(p => p.id) } } : {}).toArray();
+            const rts = await ratingsCollection.find(q ? { vendor: { $in: handles } } : {}).toArray();
+            const avg = rts.length ? (rts.reduce((a, r) => a + r.stars, 0) / rts.length).toFixed(1) : null;
+            const n = st => deals.filter(d => d.status === st).length;
+            const buyers = new Set(deals.map(d => d.buyerChatId)).size;
+            const title = q ? ("📊 Stats: " + (vKeys.size === 1 ? (match[0].vendorName || q) : q)) : "📊 CaliBaz stats";
+            const out = [title, ""];
+            if (!q || vKeys.size > 1) out.push("Vendors: " + vKeys.size);
+            out.push("Products: " + match.length);
+            out.push("Deals: " + deals.length + " (open " + n("open") + " · completed " + n("completed") + " · closed " + n("closed") + ")");
+            out.push("Payments confirmed: " + deals.filter(d => d.paid).length);
+            out.push("Buyers who chatted: " + buyers);
+            out.push("Rating: " + (avg ? "⭐ " + avg + " (" + rts.length + (rts.length === 1 ? " rating)" : " ratings)") : "no ratings yet"));
+            await sendMessage(chatId, out.join("\n"));
+          }
+        }
+      }
+
       if (text === "/enddeal") {
         const found = await findDealFor(chatId, update.message.reply_to_message);
         if (!found.deal) {
