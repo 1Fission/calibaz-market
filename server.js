@@ -45,7 +45,7 @@ const LAND_HOUSING_INDEX = CATEGORIES.indexOf("Land & Housing");
 const { MongoClient } = require("mongodb");
 const MONGO_URI = process.env.MONGO_URI;
 const client = new MongoClient(MONGO_URI);
-let ratingsCollection, productsCollection, verifiedCollection, adsCollection, usersCollection, dealsCollection, relayCollection, logCollection, alertsCollection;
+let reportsCollection, ratingsCollection, productsCollection, verifiedCollection, adsCollection, usersCollection, dealsCollection, relayCollection, logCollection, alertsCollection;
 
 async function connectDB() {
   await client.connect();
@@ -59,6 +59,7 @@ async function connectDB() {
   logCollection = db.collection("deal_messages");
   alertsCollection = db.collection("vendor_alerts");
   ratingsCollection = db.collection("ratings");
+  reportsCollection = db.collection("reports");
   console.log("Connected to MongoDB");
 }
 connectDB().catch(err => console.error("MongoDB connection error:", err));
@@ -217,6 +218,23 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (text === "/cancelreport") {
+        await usersCollection.updateOne({ chatId }, { $set: { reportDealId: null } });
+        await sendMessage(chatId, "Report cancelled.");
+      }
+
+      if (text === "/report") {
+        const found = await findDealFor(chatId, update.message.reply_to_message);
+        if (!found.deal) {
+          await sendMessage(chatId, "You have no active chat to report. Open the chat with the vendor first, then send /report.");
+        } else if (found.deal.buyerChatId !== chatId) {
+          await sendMessage(chatId, `Only buyers can report a vendor. Contact @${SUPPORT_USERNAME} if you need help.`);
+        } else {
+          await usersCollection.updateOne({ chatId }, { $set: { reportDealId: found.deal.dealId, reportAt: Date.now() } });
+          await sendMessage(chatId, `🚩 Reporting ${found.deal.vendorName} about "${found.deal.productName}".\n\nType what went wrong in one message. Send /cancelreport to stop.`);
+        }
+      }
+
       if (text === "/enddeal") {
         const found = await findDealFor(chatId, update.message.reply_to_message);
         if (!found.deal) {
@@ -248,7 +266,24 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
-      if (!text.startsWith("/") && update.message.chat.type === "private" && !update.message.successful_payment) {
+      let reportHandled = false;
+      if (!text.startsWith("/") && text && update.message.chat.type === "private") {
+        const ru = await usersCollection.findOne({ chatId });
+        if (ru && ru.reportDealId && Date.now() - (ru.reportAt || 0) < 10 * 60 * 1000) {
+          reportHandled = true;
+          const rdl = await dealsCollection.findOne({ dealId: ru.reportDealId });
+          await usersCollection.updateOne({ chatId }, { $set: { reportDealId: null } });
+          if (rdl) {
+            await reportsCollection.insertOne({ dealId: rdl.dealId, vendorName: rdl.vendorName, productName: rdl.productName, buyerChatId: rdl.buyerChatId, reason: text, at: Date.now() });
+            await logDeal(rdl.dealId, "system", "System", "Buyer reported a problem: " + text);
+            const alertText = `🚩 Vendor report\n\nVendor: ${rdl.vendorName}\nProduct: ${rdl.productName}\nBuyer: ${rdl.buyerName}\nStatus: ${rdl.status}${rdl.paid ? " · paid" : ""}\n\nReason: ${text}\n\nFull chat: /deal ${rdl.dealId}`;
+            for (const adminId of ADMIN_IDS) await sendMessage(adminId, alertText);
+            await sendMessage(chatId, "Thanks. Your report was sent to the CaliBaz team and we'll look into it.");
+          }
+        }
+      }
+
+      if (!reportHandled && !text.startsWith("/") && update.message.chat.type === "private" && !update.message.successful_payment) {
         const found = await findDealFor(chatId, update.message.reply_to_message);
         if (found.deal) {
           const d = found.deal;
@@ -495,6 +530,17 @@ app.post("/webhook", async (req, res) => {
           { upsert: true }
         );
       }
+      if (data.startsWith("rpt_")) {
+        const rptId = data.slice(4);
+        const rdd = await dealsCollection.findOne({ dealId: rptId });
+        if (!rdd || cbUser.id !== rdd.buyerChatId) {
+          await sendMessage(chatId, "Only the buyer can report this deal.");
+        } else {
+          await usersCollection.updateOne({ chatId: cbUser.id }, { $set: { reportDealId: rptId, reportAt: Date.now() } });
+          await sendMessage(chatId, `🚩 Reporting ${rdd.vendorName} about "${rdd.productName}".\n\nType what went wrong in one message. Send /cancelreport to stop.`);
+        }
+      }
+
       if (data.startsWith("rt_")) {
         const parts2 = data.split("_");
         const rtDeal = parts2[1];
@@ -867,7 +913,7 @@ async function markPaid(d) {
   await logDeal(d.dealId, "system", "System", "Vendor confirmed payment received");
   await sendDealMsg(d.vendorChatId, `✅ Payment confirmed for "${d.productName}". Arrange delivery here.`, d.dealId);
   await sendDealMsg(d.buyerChatId, `✅ ${d.vendorName} confirmed your payment for "${d.productName}". When your order arrives, tap the button below.`, d.dealId, {
-    inline_keyboard: [[{ text: "📦 I received it", callback_data: `dr_${d.dealId}` }]]
+    inline_keyboard: [[{ text: "📦 I received it", callback_data: `dr_${d.dealId}` }], [{ text: "🚩 Report a problem", callback_data: `rpt_${d.dealId}` }]]
   });
 }
 
