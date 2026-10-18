@@ -39,11 +39,17 @@
   .strip { max-height:none; }
   .trust { background:none !important; border:none !important; padding:0 2px !important; margin-bottom:12px !important; font-size:12px !important; }
   .search { margin-top:-6px !important; margin-bottom:10px !important; }
+  .titlerow { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .titlerow h1 { flex:1; min-width:0; }
+  .escpill { position:relative; overflow:hidden; flex:0 0 auto; border:1px solid #f2c94c; color:#f2c94c; background:#1b2530; border-radius:999px; padding:5px 10px; font-size:12px; font-weight:bold; cursor:pointer; white-space:nowrap; }
+  .escpill::after { content:""; position:absolute; top:0; left:-60%; width:40%; height:100%; background:linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent); transform:skewX(-20deg); animation:escsweep 4s ease-in-out infinite; }
+  @keyframes escsweep { 0% { left:-60%; } 35%, 100% { left:130%; } }
+  @media (prefers-reduced-motion: reduce) { .escpill::after { animation:none; display:none; } }
   .empty { color:#9aa5b1; font-size:14px; text-align:center; margin-top:30px; }
 </style>
 </head>
 <body>
-  <h1>CaliBaz Market</h1>
+  <div class="titlerow"><h1>CaliBaz Market</h1><div class="escpill" onclick="Telegram.WebApp.openTelegramLink('https://t.me/FissionHelp?text=' + encodeURIComponent('Hi, I would like to use escrow on CaliBaz Market.'))">🔒 Free escrow</div></div>
   <p class="sub">Your trusted multi-vendor marketplace</p>
 
   <input id="searchBox" class="search" type="search" placeholder="🔍 Search products, vendors or escrow" autocomplete="off">
