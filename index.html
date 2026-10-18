@@ -217,7 +217,7 @@
       const name = el.dataset.cat;
       const vendors = new Set(
         all.filter(p => p.category === name && !/escrow/i.test(p.vendorName || ""))
-           .map(p => p.vendor)
+           .map(p => p.vendor + "||" + (p.vendorName || ""))
       );
       const base = (ICONS[name] || "🛍️") + " " + name;
       if (vendors.size === 0) {
