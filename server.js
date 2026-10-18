@@ -486,7 +486,7 @@ app.post("/webhook", async (req, res) => {
       );
     }
 
-    if (text === "/becomevendor") {
+    if (text === "/becomevendor" || text === "/start become_vendor") {
       const userId = update.message.from.id;
       const joined = await isChannelMember(userId);
       if (joined) {
