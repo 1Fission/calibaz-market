@@ -113,7 +113,7 @@
       el.querySelector(".adtext").textContent = ad.text;
       el.style.display = "block";
       el.addEventListener("click", () => {
-        if (/^https:\/\/t\.me\//.test(ad.url)) Telegram.WebApp.openTelegramLink(ad.url);
+        if (/^https:\/\/t\.me\//.test(ad.url)) { Telegram.WebApp.openTelegramLink(ad.url); if (/^https:\/\/t\.me\/calibazbot/i.test(ad.url)) setTimeout(() => Telegram.WebApp.close(), 300); }
         else Telegram.WebApp.openLink(ad.url);
       });
     })
