@@ -45,7 +45,7 @@ const LAND_HOUSING_INDEX = CATEGORIES.indexOf("Land & Housing");
 const { MongoClient } = require("mongodb");
 const MONGO_URI = process.env.MONGO_URI;
 const client = new MongoClient(MONGO_URI);
-let reportsCollection, ratingsCollection, productsCollection, verifiedCollection, adsCollection, usersCollection, dealsCollection, relayCollection, logCollection, alertsCollection;
+let adEventsCollection, reportsCollection, ratingsCollection, productsCollection, verifiedCollection, adsCollection, usersCollection, dealsCollection, relayCollection, logCollection, alertsCollection;
 
 async function connectDB() {
   await client.connect();
@@ -60,6 +60,7 @@ async function connectDB() {
   alertsCollection = db.collection("vendor_alerts");
   ratingsCollection = db.collection("ratings");
   reportsCollection = db.collection("reports");
+  adEventsCollection = db.collection("ad_events");
   console.log("Connected to MongoDB");
 }
 connectDB().catch(err => console.error("MongoDB connection error:", err));
@@ -205,6 +206,21 @@ app.post("/webhook", async (req, res) => {
             out.push("Payments confirmed: " + deals.filter(d => d.paid).length);
             out.push("Buyers who chatted: " + buyers);
             out.push("Rating: " + (avg ? "⭐ " + avg + " (" + rts.length + (rts.length === 1 ? " rating)" : " ratings)") : "no ratings yet"));
+            if (!q) {
+              const adDoc = await adsCollection.findOne({ _id: "current" });
+              if (adDoc && adDoc.text) {
+                const evs = await adEventsCollection.find({ adId: adDoc.setAt || 0 }).toArray();
+                const v = evs.filter(e => e.type === "view");
+                const c = evs.filter(e => e.type === "click");
+                const vt = v.reduce((a, e) => a + e.count, 0);
+                const ct = c.reduce((a, e) => a + e.count, 0);
+                out.push("");
+                out.push("Ad: " + adDoc.text.slice(0, 30));
+                out.push("Views: " + vt);
+                out.push("Taps: " + ct + " (" + c.length + " unique)");
+                if (vt) out.push("Tap rate: " + (ct / vt * 100).toFixed(1) + "%");
+              }
+            }
             await sendMessage(chatId, out.join("\n"));
           }
         }
@@ -407,7 +423,7 @@ app.post("/webhook", async (req, res) => {
         if (!adText || !adUrl || !/^https:\/\//.test(adUrl)) {
           await sendMessage(chatId, "Format:\n/setad Ad text | https://t.me/username");
         } else {
-          await adsCollection.updateOne({ _id: "current" }, { $set: { text: adText, url: adUrl } }, { upsert: true });
+          await adsCollection.updateOne({ _id: "current" }, { $set: { text: adText, url: adUrl, setAt: Date.now() } }, { upsert: true });
           await sendMessage(chatId, "Ad is live ✅");
         }
       }
@@ -1049,3 +1065,18 @@ async function checkDigest() {
 
 setInterval(() => checkDigest().catch(e => console.error(e)), 60 * 60 * 1000);
 setTimeout(() => checkDigest().catch(e => console.error(e)), 90 * 1000);
+
+app.get("/ad/event", async (req, res) => {
+  try {
+    const type = req.query.type === "click" ? "click" : "view";
+    let uid = "anon";
+    try {
+      const u = JSON.parse(new URLSearchParams(req.headers["x-init-data"] || "").get("user") || "{}");
+      if (u && u.id) uid = String(u.id);
+    } catch (e) {}
+    if (type === "view") uid = "all";
+    const ad = await adsCollection.findOne({ _id: "current" });
+    if (ad && ad.text) await adEventsCollection.updateOne({ adId: ad.setAt || 0, uid, type }, { $inc: { count: 1 }, $set: { at: Date.now() } }, { upsert: true });
+  } catch (e) {}
+  res.json({ ok: true });
+});
