@@ -821,7 +821,7 @@ Yes. Contact support (@FissionHelp) before you pay. Escrow is free for now.
 CaliBaz has vetted that vendor. It's a sign of trust, not a guarantee. The ⭐ number is the average rating from buyers.
 
 <b>Can I rate a vendor?</b>
-Yes. After you tap "I received it", the bot asks for a 1-5 star rating. Vendor averages show next to their name in the market.
+Yes. After you tap "I received it", the bot asks for a 1-5 star rating. Vendor averages show next to their name in the market. You can change your rating for 10 minutes, then it locks.
 
 <b>Do I need to join the channel?</b>
 Yes. To chat with a vendor you must join @CalibazHQ first. The bot will remind you if you haven't.
@@ -831,6 +831,9 @@ A chat closes 7 days after the deal is completed, or after 14 days with no messa
 
 <b>Market slow to open?</b>
 The first load after a quiet period can take up to a minute. Wait, or close and reopen.
+
+<b>Problem with a vendor?</b>
+Tap "🚩 Report a problem" under your chat messages, or send /report. Type what went wrong and the CaliBaz team will look into it. Only the team sees reports.
 
 <b>Problem with an order?</b>
 Message support: @FissionHelp`;
