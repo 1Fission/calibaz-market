@@ -333,8 +333,14 @@
       shopBtn.textContent = "🔗 Share this shop";
       shopBtn.style.margin = "0 0 10px 0";
       shopBtn.addEventListener("click", () => {
-        const shopLink = "https://t.me/CaliBazbot?start=shop_" + encodeURIComponent(shopUser);
-        Telegram.WebApp.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(shopLink) + "&text=" + encodeURIComponent("Shop " + vendorDisplayName + " on CaliBaz Market"));
+        fetch("https://calibaz-backend.onrender.com/shopcode?u=" + encodeURIComponent(shopUser))
+          .then(r => r.json())
+          .then(d => {
+            if (!d || !d.code) return;
+            const shopLink = "https://t.me/CaliBazbot?start=shop_" + encodeURIComponent(d.code);
+            Telegram.WebApp.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(shopLink) + "&text=" + encodeURIComponent("Shop " + vendorDisplayName + " on CaliBaz Market"));
+          })
+          .catch(() => {});
       });
       productsContainer.parentNode.insertBefore(shopBtn, productsContainer);
     }

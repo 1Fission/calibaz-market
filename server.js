@@ -54,6 +54,7 @@ async function connectDB() {
   verifiedCollection = db.collection("verified_vendors");
   adsCollection = db.collection("ads");
   shareCollection = db.collection("share_events");
+  codesCollection = db.collection("vendor_codes");
   usersCollection = db.collection("users");
   dealsCollection = db.collection("deals");
   relayCollection = db.collection("relay_map");
@@ -109,11 +110,17 @@ app.post("/webhook", async (req, res) => {
       }
 
       if (text.startsWith("/start shop_")) {
-        const shopUser = text.replace("/start shop_", "").trim().replace(/^@/, "");
+        let shopUser = text.replace("/start shop_", "").trim().replace(/^@/, "");
+        try {
+          if (codesCollection && /^[a-z0-9]{6}$/.test(shopUser)) {
+            const cd = await codesCollection.findOne({ code: shopUser });
+            if (cd) shopUser = cd.user;
+          }
+        } catch (e) {}
         if (!/^[A-Za-z0-9_]{3,40}$/.test(shopUser)) {
           await sendMessage(chatId, "That shop link doesn't look right.");
         } else {
-          await sendMessage(chatId, "🛍️ Tap below to open @" + shopUser + "'s shop on CaliBaz Market.", {
+          await sendMessage(chatId, "🛍️ Tap below to open this shop on CaliBaz Market.", {
             inline_keyboard: [[{ text: "🛍️ Open shop", web_app: { url: "https://1fission.github.io/calibaz-market/?shop=" + shopUser } }]]
           });
         }
@@ -1095,6 +1102,27 @@ setInterval(() => checkDigest().catch(e => console.error(e)), 60 * 60 * 1000);
 setTimeout(() => checkDigest().catch(e => console.error(e)), 90 * 1000);
 
 var shareCollection;
+var codesCollection;
+app.get("/shopcode", async (req, res) => {
+  try {
+    const u = String(req.query.u || "").replace(/^@/, "").toLowerCase();
+    if (!/^[a-z0-9_]{3,40}$/.test(u) || !codesCollection) return res.json({});
+    let doc = await codesCollection.findOne({ user: u });
+    if (!doc) {
+      const abc = "abcdefghjkmnpqrstuvwxyz23456789";
+      let code = "";
+      for (let tries = 0; tries < 10; tries++) {
+        const bytes = require("crypto").randomBytes(6);
+        code = Array.from(bytes).map(b => abc[b % abc.length]).join("");
+        if (!(await codesCollection.findOne({ code }))) break;
+      }
+      doc = { user: u, code };
+      await codesCollection.insertOne(doc);
+    }
+    return res.json({ code: doc.code });
+  } catch (e) { return res.json({}); }
+});
+
 app.get("/share/event", async (req, res) => {
   try {
     const id = String(req.query.id || "").slice(0, 60);
