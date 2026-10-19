@@ -197,6 +197,35 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (text === "/mystats") {
+        const msUser = ((update.message.from && update.message.from.username) || "").toLowerCase();
+        if (!msUser) {
+          await sendMessage(chatId, "Set a Telegram username first (Settings > Username), then send /mystats again.");
+        } else {
+          const msProds = await productsCollection.find({ vendor: new RegExp("^@?" + msUser + "$", "i") }).toArray();
+          if (!msProds.length) {
+            await sendMessage(chatId, "No listings found for @" + msUser + " yet. Tap Become a Vendor to start selling.");
+          } else {
+            const msIds = msProds.map(p => p.id);
+            const msDeals = await dealsCollection.find({ productId: { $in: msIds } }).toArray();
+            const msRts = await ratingsCollection.find({ vendor: msUser }).toArray();
+            const msAvg = msRts.length ? (msRts.reduce((a, r) => a + r.stars, 0) / msRts.length).toFixed(1) : null;
+            let msShares = 0;
+            try { if (shareCollection) msShares = await shareCollection.countDocuments({ productId: { $in: msIds.map(String) } }); } catch (e) {}
+            const msCount = st => msDeals.filter(d => d.status === st).length;
+            const msBuyers = new Set(msDeals.map(d => d.buyerChatId)).size;
+            const msOut = ["📊 Your CaliBaz stats", ""];
+            msOut.push("Listings: " + msProds.length);
+            msOut.push("Deals: " + msDeals.length + " (open " + msCount("open") + " · completed " + msCount("completed") + " · closed " + msCount("closed") + ")");
+            msOut.push("Payments confirmed: " + msDeals.filter(d => d.paid).length);
+            msOut.push("Buyers who chatted: " + msBuyers);
+            msOut.push("Rating: " + (msAvg ? "⭐ " + msAvg + " (" + msRts.length + (msRts.length === 1 ? " rating)" : " ratings)") : "none yet"));
+            msOut.push("Times your listings were shared: " + msShares);
+            await sendMessage(chatId, msOut.join("\n"));
+          }
+        }
+      }
+
       if (text === "/stats" || text.startsWith("/stats ")) {
         if (!isAdminUser) {
           await sendMessage(chatId, "You're not authorized to use this command.");
