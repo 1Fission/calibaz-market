@@ -197,6 +197,32 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (text === "/backup") {
+        if (!isAdminUser) {
+          await sendMessage(chatId, "You're not authorized to use this command.");
+        } else {
+          try {
+            const bkSets = { products: productsCollection, verified_vendors: verifiedCollection, ads: adsCollection, share_events: shareCollection, vendor_codes: codesCollection, users: usersCollection, deals: dealsCollection, relay_map: relayCollection, deal_messages: logCollection, vendor_alerts: alertsCollection, ratings: ratingsCollection, reports: reportsCollection, ad_events: adEventsCollection };
+            const bkDump = { exportedAt: new Date().toISOString(), collections: {} };
+            const bkCounts = [];
+            for (const [bkName, bkCol] of Object.entries(bkSets)) {
+              if (!bkCol) continue;
+              const bkRows = await bkCol.find({}).toArray();
+              bkDump.collections[bkName] = bkRows;
+              bkCounts.push(bkName + ": " + bkRows.length);
+            }
+            const bkForm = new FormData();
+            bkForm.append("chat_id", String(chatId));
+            bkForm.append("caption", "🗄️ CaliBaz backup\n" + bkCounts.join("\n"));
+            bkForm.append("document", new Blob([JSON.stringify(bkDump)], { type: "application/json" }), "calibaz-backup-" + new Date().toISOString().slice(0, 10) + ".json");
+            const bkRes = await fetch(TELEGRAM_API + "/sendDocument", { method: "POST", body: bkForm });
+            if (!bkRes.ok) await sendMessage(chatId, "Backup failed to send.");
+          } catch (e) {
+            await sendMessage(chatId, "Backup failed.");
+          }
+        }
+      }
+
       if (text === "/mystats") {
         const msUser = ((update.message.from && update.message.from.username) || "").toLowerCase();
         if (!msUser) {
