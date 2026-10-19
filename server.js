@@ -258,6 +258,50 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (text.startsWith("/whoshop")) {
+        if (isAdminUser) {
+          const wsArg = (text.split(" ").filter(Boolean)[1] || "").replace(/^.*shop_/, "").replace(/^@/, "").toLowerCase();
+          let wsDoc = null;
+          try {
+            if (wsArg && codesCollection) wsDoc = (await codesCollection.findOne({ code: wsArg })) || (await codesCollection.findOne({ user: wsArg }));
+          } catch (e) {}
+          if (!wsDoc) {
+            await sendMessage(chatId, "No shop found. Use /whoshop followed by the code or link.");
+          } else {
+            const wsProds = await productsCollection.find({ vendor: new RegExp("^" + wsDoc.user + "$", "i") }).toArray();
+            const wsNames = Array.from(new Set(wsProds.map(p => p.vendorName).filter(Boolean)));
+            await sendMessage(chatId, "🔎 Shop " + wsDoc.code + "\nOwner: @" + wsDoc.user + "\nDisplay names: " + (wsNames.join(", ") || "none") + "\nListings: " + wsProds.length + "\nLink: https://t.me/CaliBazbot?start=shop_" + wsDoc.code);
+          }
+        }
+      }
+
+      if (text.startsWith("/moveshop")) {
+        if (isAdminUser) {
+          const msParts = text.split(" ").filter(Boolean);
+          const msOld = (msParts[1] || "").replace(/^@/, "");
+          const msNew = (msParts[2] || "").replace(/^@/, "");
+          if (!/^[A-Za-z0-9_]{3,40}$/.test(msOld) || !/^[A-Za-z0-9_]{3,40}$/.test(msNew)) {
+            await sendMessage(chatId, "Use: /moveshop oldusername newusername");
+          } else {
+            try {
+              let linkMsg = "No shop link existed for the old username.";
+              const oldDoc = codesCollection ? await codesCollection.findOne({ user: msOld.toLowerCase() }) : null;
+              const newDoc = codesCollection ? await codesCollection.findOne({ user: msNew.toLowerCase() }) : null;
+              if (oldDoc && newDoc) {
+                linkMsg = "New username already has its own shop link, so the old link was not moved.";
+              } else if (oldDoc) {
+                await codesCollection.updateOne({ user: msOld.toLowerCase() }, { $set: { user: msNew.toLowerCase() } });
+                linkMsg = "Shop link " + oldDoc.code + " now points to @" + msNew + ".";
+              }
+              const r = await productsCollection.updateMany({ vendor: new RegExp("^" + msOld + "$", "i") }, { $set: { vendor: msNew } });
+              await sendMessage(chatId, "✅ Moved " + r.modifiedCount + " listing(s) from @" + msOld + " to @" + msNew + ".\n" + linkMsg + "\nRe-verify the new username if needed and ask the vendor to tap Start on the bot.");
+            } catch (e) {
+              await sendMessage(chatId, "Could not move the shop.");
+            }
+          }
+        }
+      }
+
       if (text === "/digest") {
         if (!isAdminUser) {
           await sendMessage(chatId, "You're not authorized to use this command.");
