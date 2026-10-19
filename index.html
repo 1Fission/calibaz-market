@@ -334,6 +334,7 @@
       div.querySelector(".sharebtn").addEventListener("click", () => {
         const link = "https://t.me/CaliBazbot?start=deal_" + encodeURIComponent(p.id);
         const txt = p.name + " - " + (/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price) + " on CaliBaz Market";
+        try { fetch("https://calibaz-backend.onrender.com/share/event?id=" + encodeURIComponent(p.id)); } catch (e) {}
         Telegram.WebApp.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(link) + "&text=" + encodeURIComponent(txt));
       });
       productsContainer.appendChild(div);

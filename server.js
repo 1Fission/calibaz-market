@@ -53,6 +53,7 @@ async function connectDB() {
   productsCollection = db.collection("products");
   verifiedCollection = db.collection("verified_vendors");
   adsCollection = db.collection("ads");
+  shareCollection = db.collection("share_events");
   usersCollection = db.collection("users");
   dealsCollection = db.collection("deals");
   relayCollection = db.collection("relay_map");
@@ -207,7 +208,22 @@ app.post("/webhook", async (req, res) => {
             out.push("Buyers who chatted: " + buyers);
             out.push("Rating: " + (avg ? "⭐ " + avg + " (" + rts.length + (rts.length === 1 ? " rating)" : " ratings)") : "no ratings yet"));
             if (!q) {
-              const adDoc = await adsCollection.findOne({ _id: "current" });
+              try {
+              if (shareCollection) {
+                const shs = await shareCollection.find({}).toArray();
+                out.push("");
+                out.push("Shares: " + shs.length);
+                const by = {};
+                shs.forEach(x => { by[x.productId] = (by[x.productId] || 0) + 1; });
+                const top = Object.entries(by).sort((m, n) => n[1] - m[1]).slice(0, 3);
+                if (top.length) {
+                  const names = {};
+                  try { (await loadProducts()).forEach(p => { names[String(p.id)] = p.name; }); } catch (e) {}
+                  out.push("Most shared: " + top.map(t => (names[t[0]] || t[0]) + " (" + t[1] + ")").join(", "));
+                }
+              }
+            } catch (e) {}
+            const adDoc = await adsCollection.findOne({ _id: "current" });
               if (adDoc && adDoc.text) {
                 const evs = await adEventsCollection.find({ adId: adDoc.setAt || 0 }).toArray();
                 const v = evs.filter(e => e.type === "view");
@@ -1068,6 +1084,15 @@ async function checkDigest() {
 
 setInterval(() => checkDigest().catch(e => console.error(e)), 60 * 60 * 1000);
 setTimeout(() => checkDigest().catch(e => console.error(e)), 90 * 1000);
+
+var shareCollection;
+app.get("/share/event", async (req, res) => {
+  try {
+    const id = String(req.query.id || "").slice(0, 60);
+    if (id && shareCollection) await shareCollection.insertOne({ productId: id, at: Date.now() });
+  } catch (e) {}
+  res.json({ ok: true });
+});
 
 app.get("/ad/event", async (req, res) => {
   try {
