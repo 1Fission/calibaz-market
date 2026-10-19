@@ -235,6 +235,22 @@
       updateCounts(all);
       renderLatest(all);
       searchData = all;
+      try {
+        const shopParam = (new URLSearchParams(location.search).get("shop") || "").replace(/^@/, "").toLowerCase();
+        if (shopParam) {
+          const mine = all.filter(p => String(p.vendor).toLowerCase() === shopParam && p.category !== "Test Items (Admin Only)" && !/escrow/i.test(p.vendorName || ""));
+          if (mine.length) {
+            const first = mine[0];
+            currentCategoryProducts = mine.map(p => Object.assign({}, p, { vendorName: first.vendorName }));
+            categoriesView.style.display = "none";
+            showProducts(first.vendor + "||" + (first.vendorName || ""), first.vendorName || first.vendor);
+            const nb = backToVendorsBtn.cloneNode(true);
+            backToVendorsBtn.parentNode.replaceChild(nb, backToVendorsBtn);
+            nb.textContent = "← Browse market";
+            nb.addEventListener("click", () => { location.href = location.pathname; });
+          }
+        }
+      } catch (e) {}
       if (all.some(p => p.category === "Test Items (Admin Only)")) {
         const div = document.createElement("div");
         div.className = "category";

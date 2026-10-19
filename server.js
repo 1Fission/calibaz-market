@@ -108,7 +108,16 @@ app.post("/webhook", async (req, res) => {
         await sendMessage(chatId, "You're set up as a CaliBaz vendor ✅\n\nWhen a buyer taps I'm Interested on your product, their messages arrive here. Tap ↩️ Reply under a message to answer them.");
       }
 
-      if (text.startsWith("/start deal_")) {
+      if (text.startsWith("/start shop_")) {
+        const shopUser = text.replace("/start shop_", "").trim().replace(/^@/, "");
+        if (!/^[A-Za-z0-9_]{3,40}$/.test(shopUser)) {
+          await sendMessage(chatId, "That shop link doesn't look right.");
+        } else {
+          await sendMessage(chatId, "🛍️ Tap below to open @" + shopUser + "'s shop on CaliBaz Market.", {
+            inline_keyboard: [[{ text: "🛍️ Open shop", web_app: { url: "https://1fission.github.io/calibaz-market/?shop=" + shopUser } }]]
+          });
+        }
+      } else if (text.startsWith("/start deal_")) {
         const productId = text.replace("/start deal_", "").trim();
         const memberOk = await isChannelMember(fromUser.id);
         if (!memberOk) {
