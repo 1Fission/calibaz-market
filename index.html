@@ -339,6 +339,14 @@
       });
       productsContainer.appendChild(div);
     });
+    const escStrip = document.createElement("div");
+    escStrip.className = "vendor";
+    escStrip.style.marginTop = "10px";
+    escStrip.textContent = "🛡️ Escrow available · Ask support";
+    escStrip.addEventListener("click", () => {
+      Telegram.WebApp.openTelegramLink("https://t.me/FissionHelp?text=" + encodeURIComponent("Hi, I'd like escrow for a deal on CaliBaz Market."));
+    });
+    productsContainer.appendChild(escStrip);
   }
 </script>
 </body>
