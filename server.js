@@ -197,6 +197,43 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (update.message.document && ((update.message.caption || text || "").trim() === "/restore")) {
+        if (!isAdminUser) {
+          await sendMessage(chatId, "You're not authorized to use this command.");
+        } else {
+          try {
+            const rsInfo = await (await fetch(TELEGRAM_API + "/getFile?file_id=" + encodeURIComponent(update.message.document.file_id))).json();
+            if (!rsInfo.ok) {
+              await sendMessage(chatId, "Could not download that file.");
+            } else {
+              const rsRaw = await (await fetch("https://api.telegram.org/file/bot" + BOT_TOKEN + "/" + rsInfo.result.file_path)).text();
+              const rsDump = JSON.parse(rsRaw, (k, v) => (typeof v === "string" && /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?Z$/.test(v)) ? new Date(v) : v);
+              const rsSets = { products: productsCollection, verified_vendors: verifiedCollection, ads: adsCollection, share_events: shareCollection, vendor_codes: codesCollection, users: usersCollection, deals: dealsCollection, relay_map: relayCollection, deal_messages: logCollection, vendor_alerts: alertsCollection, ratings: ratingsCollection, reports: reportsCollection, ad_events: adEventsCollection };
+              const rsOut = ["♻️ Restore finished", ""];
+              for (const [rsName, rsCol] of Object.entries(rsSets)) {
+                const rsRows = (rsDump.collections && rsDump.collections[rsName]) || [];
+                if (!rsCol || !rsRows.length) continue;
+                const rsClean = rsRows.map(r => { const c = Object.assign({}, r); if (typeof c._id === "string" && /^[a-f0-9]{24}$/i.test(c._id)) delete c._id; return c; });
+                if (rsName === "products") {
+                  const rsHave = new Set((await rsCol.find({}).toArray()).map(p => String(p.id)));
+                  const rsMissing = rsClean.filter(p => !rsHave.has(String(p.id)));
+                  if (rsMissing.length) await rsCol.insertMany(rsMissing);
+                  rsOut.push(rsName + ": restored " + rsMissing.length + " missing, kept " + (rsClean.length - rsMissing.length));
+                } else if ((await rsCol.countDocuments({})) === 0) {
+                  await rsCol.insertMany(rsClean, { ordered: false });
+                  rsOut.push(rsName + ": restored " + rsClean.length);
+                } else {
+                  rsOut.push(rsName + ": already has data, left untouched");
+                }
+              }
+              await sendMessage(chatId, rsOut.join("\n"));
+            }
+          } catch (e) {
+            await sendMessage(chatId, "Restore failed. Nothing was deleted.");
+          }
+        }
+      }
+
       if (text === "/backup") {
         if (!isAdminUser) {
           await sendMessage(chatId, "You're not authorized to use this command.");
