@@ -325,10 +325,16 @@
         <div class="price">${/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price}</div>
         <div class="desc">${p.description}</div>
         <button>I'm Interested</button>
+        <button class="sharebtn" style="margin-top:6px;background:transparent;border:1px solid currentColor;">🔗 Share</button>
       `;
       div.querySelector("button").addEventListener("click", () => {
         Telegram.WebApp.openTelegramLink("https://t.me/CaliBazbot?start=deal_" + encodeURIComponent(p.id));
         setTimeout(() => Telegram.WebApp.close(), 300);
+      });
+      div.querySelector(".sharebtn").addEventListener("click", () => {
+        const link = "https://t.me/CaliBazbot?start=deal_" + encodeURIComponent(p.id);
+        const txt = p.name + " - " + (/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price) + " on CaliBaz Market";
+        Telegram.WebApp.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(link) + "&text=" + encodeURIComponent(txt));
       });
       productsContainer.appendChild(div);
     });
