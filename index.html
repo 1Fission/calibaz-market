@@ -324,6 +324,20 @@
     vendorsView.style.display = "none";
     productsView.style.display = "block";
     productsContainer.innerHTML = "";
+    let shopBtn = document.getElementById("shareShopBtn");
+    if (shopBtn) shopBtn.remove();
+    const shopUser = String(vendorUsername).split("||")[0];
+    if (/^[A-Za-z0-9_]{3,40}$/.test(shopUser)) {
+      shopBtn = document.createElement("button");
+      shopBtn.id = "shareShopBtn";
+      shopBtn.textContent = "🔗 Share this shop";
+      shopBtn.style.margin = "0 0 10px 0";
+      shopBtn.addEventListener("click", () => {
+        const shopLink = "https://t.me/CaliBazbot?start=shop_" + encodeURIComponent(shopUser);
+        Telegram.WebApp.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(shopLink) + "&text=" + encodeURIComponent("Shop " + vendorDisplayName + " on CaliBaz Market"));
+      });
+      productsContainer.parentNode.insertBefore(shopBtn, productsContainer);
+    }
 
     const filtered = currentCategoryProducts.filter(p => (p.vendor + "||" + (p.vendorName || "")) === vendorUsername);
 
