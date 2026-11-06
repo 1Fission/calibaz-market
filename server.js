@@ -106,7 +106,7 @@ app.post("/webhook", async (req, res) => {
       const isAdminUser = !!fromUser && ADMIN_IDS.includes(fromUser.id);
 
       if (text === "/start vendor") {
-        await sendMessage(chatId, "You're set up as a CaliBaz vendor ✅\n\nWhen a buyer taps I'm Interested on your product, their messages arrive here. Tap ↩️ Reply under a message to answer them.");
+        await sendMessage(chatId, "You're set up as a CaliBaz vendor ✅\n\nWhen a buyer taps I'm Interested on your product, their messages arrive here. Tap ↩️ Reply under a message to answer them.\n\nTrack your sales anytime with /mystats. You can also share your shop with the 🔗 Share this shop button in the Market.");
       }
 
       if (text.startsWith("/start shop_")) {
@@ -1044,6 +1044,15 @@ Yes. Buyers rate you after each completed deal, and your average shows next to y
 
 <b>How do I get the ✅?</b>
 The team gives it after vetting. Ask @FissionHelp.
+
+<b>Who runs CaliBaz Market?</b>
+CaliBaz Market is operated by CaliBaz Global Ltd, a company registered with the Corporate Affairs Commission (CAC) in Nigeria.
+
+<b>How do I see my sales?</b>
+Send /mystats to this bot. You will see your listings, deals, confirmed payments, buyers, rating and how many times your listings were shared.
+
+<b>Can I share my shop?</b>
+Yes. Open your shop in the Market and tap "🔗 Share this shop". Post the link anywhere: buyers tap it, start the bot and open your shop directly.
 
 <b>Change or remove a listing?</b>
 Message @FissionHelp with the product name and the change.`;
