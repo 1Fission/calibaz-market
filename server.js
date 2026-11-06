@@ -615,6 +615,34 @@ app.post("/webhook", async (req, res) => {
       }
     }
 
+    if (text.startsWith("/editproduct")) {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const ep = text.replace("/editproduct", "").split("|").map(x => x.trim());
+        const epId = ep[0];
+        const epField = (ep[1] || "").toLowerCase();
+        const epValue = ep.slice(2).join(" | ");
+        const fieldMap = { name: "name", price: "price", description: "description", vendorname: "vendorName", category: "category" };
+        if (!epId || !epField || (epField !== "photo" && !epValue)) {
+          await sendMessage(chatId, "Format:\n/editproduct <id> | field | new value\n\nFields: name, price, description, vendorname, category\n\nTo change the photo, send the new photo with this caption:\n/editproduct <id> | photo");
+        } else if (epField === "photo") {
+          const ph = update.message.photo;
+          if (!ph) {
+            await sendMessage(chatId, "Send the new photo with the caption:\n/editproduct <id> | photo");
+          } else {
+            const r = await productsCollection.updateOne({ id: epId }, { $set: { image: ph[ph.length - 1].file_id } });
+            await sendMessage(chatId, r.matchedCount ? "Photo updated ✅" : "No product found with that id.");
+          }
+        } else if (!fieldMap[epField]) {
+          await sendMessage(chatId, "Unknown field. Use: name, price, description, vendorname, category, photo");
+        } else {
+          const r = await productsCollection.updateOne({ id: epId }, { $set: { [fieldMap[epField]]: epValue } });
+          await sendMessage(chatId, r.matchedCount ? "Updated " + epField + " ✅" : "No product found with that id.");
+        }
+      }
+    }
+
     if (text.startsWith("/verify") || text.startsWith("/unverify")) {
       if (!ADMIN_IDS.includes(update.message.from.id)) {
         await sendMessage(chatId, "You're not authorized to use this command.");
