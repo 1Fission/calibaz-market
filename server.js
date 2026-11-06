@@ -995,6 +995,9 @@ Open the market, then pick a category, a vendor, then a product. Or use the sear
 <b>Does it cost anything to buy?</b>
 No. Browsing and contacting vendors is free.
 
+<b>Where do I see new listings?</b>
+Every new listing is posted to our channel @CalibazHQ. Join it to see them first, and tap "I'm Interested" right from the post.
+
 <b>How do I order?</b>
 Tap "I'm Interested" on a product. It opens a private chat with the vendor inside this bot. Agree on price, payment, and any customization there.
 
