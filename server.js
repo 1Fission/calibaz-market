@@ -701,11 +701,36 @@ app.post("/webhook", async (req, res) => {
           if (!started && !force) {
             await sendMessage(chatId, `⚠️ ${vendorName} (@${handle}) hasn't started @CaliBazbot yet, so buyers can't reach them through deal chats.\n\nForward them this link and ask them to tap Start:\nhttps://t.me/CaliBazbot?start=vendor\n\nThen run /addproduct again.\n\nTo list them anyway (buyers get a direct chat link instead), add | force at the end.`);
           } else try {
+            const newId = Date.now().toString();
             await saveProduct({
-              id: Date.now().toString(),
+              id: newId,
               category, name, price, description, vendor, vendorName,
               image: (update.message.photo ? update.message.photo[update.message.photo.length - 1].file_id : null)
             });
+            try {
+              if (category !== "Test Items (Admin Only)") {
+                const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                const priceTxt = /^\d+$/.test(String(price).trim()) ? price + " Stars" : price;
+                const desc = String(description || "").slice(0, 300);
+                const cap = "🆕 <b>New listing</b>\n\n<b>" + esc(name) + "</b>\n💰 " + esc(priceTxt) + "\n🏪 " + esc(vendorName) + "\n📂 " + esc(category) + (desc ? "\n\n" + esc(desc) : "");
+                const img = update.message.photo ? update.message.photo[update.message.photo.length - 1].file_id : null;
+                const body = {
+                  chat_id: "@" + CHANNEL_USERNAME,
+                  parse_mode: "HTML",
+                  reply_markup: { inline_keyboard: [[{ text: "💬 I'm Interested", url: "https://t.me/CaliBazbot?start=deal_" + newId }]] }
+                };
+                if (img) { body.photo = img; body.caption = cap; } else { body.text = cap; }
+                const cr = await fetch(TELEGRAM_API + "/" + (img ? "sendPhoto" : "sendMessage"), {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(body)
+                });
+                const cj = await cr.json();
+                if (!cj.ok) await sendMessage(chatId, "⚠️ Listed, but the channel post failed: " + cj.description);
+              }
+            } catch (e) {
+              await sendMessage(chatId, "⚠️ Listed, but the channel post failed.");
+            }
             await sendMessage(chatId, `Product added: ${name} (${category}) by ${vendorName}`);
           } catch (err) {
             await sendMessage(chatId, "Error saving product. Please try again.");
