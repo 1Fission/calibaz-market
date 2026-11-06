@@ -985,6 +985,9 @@ Deal chats are recorded and can be read by the CaliBaz team for escrow and dispu
 <b>Can I use escrow?</b>
 Yes. Contact support (@FissionHelp) before you pay. Escrow is free for now.
 
+<b>Who runs CaliBaz Market?</b>
+CaliBaz Market is operated by CaliBaz Global Ltd, a company registered with the Corporate Affairs Commission (CAC) in Nigeria.
+
 <b>What does the ✅ mean?</b>
 CaliBaz has vetted that vendor. It's a sign of trust, not a guarantee. The ⭐ number is the average rating from buyers.
 
