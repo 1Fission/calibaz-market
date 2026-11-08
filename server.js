@@ -72,6 +72,7 @@ async function loadProducts() {
 }
 
 async function saveProduct(product) {
+  if (product && typeof product.vendor === "string") product.vendor = product.vendor.trim().replace(/^@+/, "").trim();
   await productsCollection.insertOne(product);
 }
 
