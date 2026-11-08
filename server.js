@@ -1113,6 +1113,9 @@ Send /mystats to this bot. You will see your listings, deals, confirmed payments
 <b>Can I share my shop?</b>
 Yes. Open your shop in the Market and tap "🔗 Share this shop". Post the link anywhere: buyers tap it, start the bot and open your shop directly.
 
+<b>Are my listings posted anywhere?</b>
+Yes. Every new listing is posted to our channel @CalibazHQ with an "I'm Interested" button, so more buyers see it.
+
 <b>Change or remove a listing?</b>
 Message @FissionHelp with the product name and the change.`;
 
