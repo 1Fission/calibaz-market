@@ -451,9 +451,11 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      let editReqHandled = false;
       if (!text.startsWith("/") && text && update.message.chat.type === "private") {
         const eu = await usersCollection.findOne({ chatId });
         if (eu && eu.editReqId && Date.now() - (eu.editReqAt || 0) < 10 * 60 * 1000) {
+          editReqHandled = true;
           const ep2 = await productsCollection.findOne({ id: eu.editReqId });
           await usersCollection.updateOne({ chatId }, { $set: { editReqId: null } });
           if (ep2) {
@@ -465,7 +467,7 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
-      let reportHandled = false;
+      let reportHandled = editReqHandled;
       if (!text.startsWith("/") && text && update.message.chat.type === "private") {
         const ru = await usersCollection.findOne({ chatId });
         if (ru && ru.reportDealId && Date.now() - (ru.reportAt || 0) < 10 * 60 * 1000) {
