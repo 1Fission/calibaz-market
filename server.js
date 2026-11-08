@@ -1175,6 +1175,9 @@ Yes. Open your shop in the Market and tap "🔗 Share this shop". Post the link 
 <b>Are my listings posted anywhere?</b>
 Yes. Every new listing is posted to our channel @CalibazHQ with an "I'm Interested" button, so more buyers see it.
 
+<b>How do I request a change to my listing?</b>
+Send /mylistings to this bot. Tap "✏️ Request change" under the listing, then type what you want changed in one message, for example: change price to 3000. The CaliBaz team updates it for you.
+
 <b>Change or remove a listing?</b>
 Message @FissionHelp with the product name and the change.`;
 
