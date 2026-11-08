@@ -451,6 +451,20 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (!text.startsWith("/") && text && update.message.chat.type === "private") {
+        const eu = await usersCollection.findOne({ chatId });
+        if (eu && eu.editReqId && Date.now() - (eu.editReqAt || 0) < 10 * 60 * 1000) {
+          const ep2 = await productsCollection.findOne({ id: eu.editReqId });
+          await usersCollection.updateOne({ chatId }, { $set: { editReqId: null } });
+          if (ep2) {
+            const reqUser = ((update.message.from && update.message.from.username) || "unknown");
+            const reqAlert = "✏️ Change request\n\nVendor: @" + reqUser + " (" + ep2.vendorName + ")\nProduct: " + ep2.name + "\nID: " + ep2.id + "\n\nRequest: " + text + "\n\nTo apply:\n/editproduct " + ep2.id + " | field | new value";
+            for (const adminId of ADMIN_IDS) await sendMessage(adminId, reqAlert);
+            await sendMessage(chatId, "Thanks. Your request was sent to the CaliBaz team and we'll update your listing.");
+          }
+        }
+      }
+
       let reportHandled = false;
       if (!text.startsWith("/") && text && update.message.chat.type === "private") {
         const ru = await usersCollection.findOne({ chatId });
@@ -611,6 +625,36 @@ app.post("/webhook", async (req, res) => {
         } else {
           const r = await productsCollection.updateOne({ id }, { $set: { category } });
           await sendMessage(chatId, r.matchedCount ? "Category updated." : "No product found with that id.");
+        }
+      }
+    }
+
+    if (text === "/cancelchange") {
+      await usersCollection.updateOne({ chatId }, { $set: { editReqId: null } });
+      await sendMessage(chatId, "Cancelled.");
+    }
+
+    if (text === "/mylistings" || text.startsWith("/mylistings@")) {
+      const uname = ((update.message.from && update.message.from.username) || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
+      if (!uname) {
+        await sendMessage(chatId, "Set a Telegram username first, so we can match your listings.");
+      } else {
+        const mine = await productsCollection.find({ vendor: { $regex: "^" + uname + "$", $options: "i" } }).limit(20).toArray();
+        if (!mine.length) {
+          await sendMessage(chatId, "No listings found for @" + uname + ".");
+        } else {
+          await sendMessage(chatId, "Your listings (" + mine.length + "). Tap a button to request a change.");
+          for (const mp of mine) {
+            await fetch(TELEGRAM_API + "/sendMessage", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: mp.name + "\n" + mp.price + " · " + mp.category,
+                reply_markup: { inline_keyboard: [[{ text: "✏️ Request change", callback_data: "chg_" + mp.id }]] }
+              })
+            });
+          }
         }
       }
     }
@@ -780,6 +824,18 @@ app.post("/webhook", async (req, res) => {
           { upsert: true }
         );
       }
+      if (data.startsWith("chg_")) {
+        const cgId = data.slice(4);
+        const cgp = await productsCollection.findOne({ id: cgId });
+        const cgU = (cbUser.username || "").toLowerCase();
+        if (!cgp || !cgU || String(cgp.vendor).toLowerCase() !== cgU) {
+          await sendMessage(chatId, "This listing is not linked to your username.");
+        } else {
+          await usersCollection.updateOne({ chatId: cbUser.id }, { $set: { editReqId: cgId, editReqAt: Date.now() } });
+          await sendMessage(chatId, "✏️ " + cgp.name + "\n\nType the change you want in one message, for example: change price to 3000.\n\nSend /cancelchange to stop.");
+        }
+      }
+
       if (data.startsWith("rpt_")) {
         const rptId = data.slice(4);
         const rdd = await dealsCollection.findOne({ dealId: rptId });
