@@ -67,8 +67,8 @@ async function connectDB() {
 }
 connectDB().catch(err => console.error("MongoDB connection error:", err));
 
-async function loadProducts() {
-  return await productsCollection.find({}).toArray();
+async function loadProducts(includeHidden) {
+  return await productsCollection.find(includeHidden ? {} : { hidden: { $ne: true } }).toArray();
 }
 
 async function saveProduct(product) {
@@ -327,7 +327,7 @@ app.post("/webhook", async (req, res) => {
                 const top = Object.entries(by).sort((m, n) => n[1] - m[1]).slice(0, 3);
                 if (top.length) {
                   const names = {};
-                  try { (await loadProducts()).forEach(p => { names[String(p.id)] = p.name; }); } catch (e) {}
+                  try { (await loadProducts(true)).forEach(p => { names[String(p.id)] = p.name; }); } catch (e) {}
                   out.push("Most shared: " + top.map(t => (names[t[0]] || t[0]) + " (" + t[1] + ")").join(", "));
                 }
               }
@@ -662,6 +662,23 @@ app.post("/webhook", async (req, res) => {
       }
     }
 
+    if (text === "/hidden" || text.startsWith("/unhide")) {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else if (text === "/hidden") {
+        const hl = await productsCollection.find({ hidden: true }).toArray();
+        await sendMessage(chatId, hl.length ? hl.map(p => p.id + " | " + p.name + " | " + p.vendor).join("\n") : "No hidden listings.");
+      } else {
+        const uhId = text.replace("/unhide", "").trim();
+        if (!uhId) {
+          await sendMessage(chatId, "Format:\n/unhide <id>");
+        } else {
+          const r = await productsCollection.updateOne({ id: uhId }, { $set: { confirmedAt: Date.now() }, $unset: { hidden: "", hiddenAt: "", availAskedAt: "" } });
+          await sendMessage(chatId, r.matchedCount ? "Listing restored ✅" : "No product found with that id.");
+        }
+      }
+    }
+
     if (text.startsWith("/editproduct")) {
       if (!ADMIN_IDS.includes(update.message.from.id)) {
         await sendMessage(chatId, "You're not authorized to use this command.");
@@ -713,7 +730,7 @@ app.post("/webhook", async (req, res) => {
         await sendMessage(chatId, "You're not authorized to use this command.");
       } else if (text === "/listproducts" || text.startsWith("/listproducts ")) {
         const q = text.replace("/listproducts", "").trim().toLowerCase().replace("@", "");
-          const all = (await loadProducts()).filter(p => !q || [p.vendor, p.vendorName].join(" ").toLowerCase().includes(q));
+          const all = (await loadProducts(true)).filter(p => !q || [p.vendor, p.vendorName].join(" ").toLowerCase().includes(q));
         if (all.length === 0) {
           await sendMessage(chatId, "No products yet.");
         } else {
@@ -836,6 +853,21 @@ app.post("/webhook", async (req, res) => {
         } else {
           await usersCollection.updateOne({ chatId: cbUser.id }, { $set: { editReqId: cgId, editReqAt: Date.now() } });
           await sendMessage(chatId, "✏️ " + cgp.name + "\n\nType the change you want in one message, for example: change price to 3000.\n\nSend /cancelchange to stop.");
+        }
+      }
+
+      if (data.startsWith("avy_") || data.startsWith("avn_")) {
+        const avId = data.slice(4);
+        const avp = await productsCollection.findOne({ id: avId });
+        const avU = (cbUser.username || "").toLowerCase();
+        if (!avp || (String(avp.vendor).toLowerCase() !== avU && !ADMIN_IDS.includes(cbUser.id))) {
+          await sendMessage(chatId, "This listing is not linked to your username.");
+        } else if (data.startsWith("avy_")) {
+          await productsCollection.updateOne({ id: avId }, { $set: { confirmedAt: Date.now() }, $unset: { availAskedAt: "" } });
+          await sendMessage(chatId, "✅ Thanks. " + avp.name + " is confirmed for another 90 days.");
+        } else {
+          await productsCollection.updateOne({ id: avId }, { $set: { hidden: true, hiddenAt: Date.now() } });
+          await sendMessage(chatId, "Done. " + avp.name + " is now hidden. Contact @FissionHelp if you want it back.");
         }
       }
 
@@ -1367,7 +1399,44 @@ async function checkDigest() {
   for (const adminId of ADMIN_IDS) await sendMessage(adminId, text);
 }
 
+async function checkAvailability() {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const list = await productsCollection.find({ hidden: { $ne: true }, category: { $ne: "Test Items (Admin Only)" } }).toArray();
+  let handled = 0;
+  for (const p of list) {
+    if (handled >= 20) break;
+    const last = p.confirmedAt || Number(p.id) || now;
+    const vu = await usersCollection.findOne({ username: String(p.vendor).toLowerCase() });
+    if (p.availAskedAt) {
+      if (now - p.availAskedAt > 7 * DAY) {
+        await productsCollection.updateOne({ id: p.id }, { $set: { hidden: true, hiddenAt: now } });
+        handled++;
+        if (vu) await sendMessage(vu.chatId, "Your listing " + p.name + " was hidden because it was not confirmed. Contact @FissionHelp to bring it back.");
+        for (const adminId of ADMIN_IDS) await sendMessage(adminId, "🙈 Hidden (no reply): " + p.name + " (" + p.vendor + ") ID " + p.id + "\nRestore with /unhide " + p.id);
+      }
+    } else if (now - last > 90 * DAY) {
+      await productsCollection.updateOne({ id: p.id }, { $set: { availAskedAt: now } });
+      handled++;
+      if (vu) {
+        await fetch(TELEGRAM_API + "/sendMessage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: vu.chatId,
+            text: "Is this listing still available?\n\n" + p.name + "\n" + p.price + " · " + p.category + "\n\nPlease answer within 7 days or it will be hidden.",
+            reply_markup: { inline_keyboard: [[{ text: "✅ Yes, still available", callback_data: "avy_" + p.id }, { text: "❌ Remove", callback_data: "avn_" + p.id }]] }
+          })
+        });
+      } else {
+        for (const adminId of ADMIN_IDS) await sendMessage(adminId, "⏰ Vendor not reachable for the availability check: " + p.name + " (" + p.vendor + ") ID " + p.id + ". It will be hidden in 7 days unless you confirm it.");
+      }
+    }
+  }
+}
+
 setInterval(() => checkDigest().catch(e => console.error(e)), 60 * 60 * 1000);
+setInterval(() => checkAvailability().catch(e => console.error(e)), 6 * 60 * 60 * 1000);
 setTimeout(() => checkDigest().catch(e => console.error(e)), 90 * 1000);
 
 var shareCollection;
