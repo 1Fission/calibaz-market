@@ -1210,6 +1210,9 @@ Yes. Every new listing is posted to our channel @CalibazHQ with an "I'm Interest
 <b>How do I request a change to my listing?</b>
 Send /mylistings to this bot. Tap "✏️ Request change" under the listing, then type what you want changed in one message, for example: change price to 3000. The CaliBaz team updates it for you.
 
+<b>Why did I get "Is this still available?"</b>
+Every 90 days we check that your listings are still available. Tap "Yes, still available" to keep a listing live, or "Remove" if it has sold. If there is no reply within 7 days, the listing is hidden, not deleted, and support can bring it back.
+
 <b>Change or remove a listing?</b>
 Message @FissionHelp with the product name and the change.`;
 
