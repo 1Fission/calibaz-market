@@ -662,6 +662,28 @@ app.post("/webhook", async (req, res) => {
       }
     }
 
+    if (text.startsWith("/testavail")) {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const taId = text.replace("/testavail", "").trim();
+        const tap = taId ? await productsCollection.findOne({ id: taId }) : null;
+        if (!tap) {
+          await sendMessage(chatId, "Format:\n/testavail <id>");
+        } else {
+          await fetch(TELEGRAM_API + "/sendMessage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: "Is this listing still available?\n\n" + tap.name + "\n" + tap.price + " · " + tap.category + "\n\nPlease answer within 7 days or it will be hidden.",
+              reply_markup: { inline_keyboard: [[{ text: "✅ Yes, still available", callback_data: "avy_" + tap.id }, { text: "❌ Remove", callback_data: "avn_" + tap.id }]] }
+            })
+          });
+        }
+      }
+    }
+
     if (text === "/hidden" || text.startsWith("/unhide")) {
       if (!ADMIN_IDS.includes(update.message.from.id)) {
         await sendMessage(chatId, "You're not authorized to use this command.");
