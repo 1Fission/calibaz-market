@@ -1019,6 +1019,16 @@ app.post("/webhook", async (req, res) => {
     );
   }
 
+  if (update.message && update.message.successful_payment) {
+    try {
+      const sp = update.message.successful_payment;
+      const pf = update.message.from || {};
+      const who = pf.username ? "@" + pf.username : (pf.first_name || "no name");
+      const note = "💰 New vendor payment\n\nUser: " + who + "\nChat ID: " + pf.id + "\nAmount: " + sp.total_amount + " ⭐ (" + sp.currency + ")\nCharge ID: " + sp.telegram_payment_charge_id;
+      for (const adminId of ADMIN_IDS) await sendMessage(adminId, note);
+    } catch (e) { console.error("admin payment notice failed", e); }
+  }
+
   if (update.pre_checkout_query) {
     await fetch(`${TELEGRAM_API}/answerPreCheckoutQuery`, {
       method: "POST",
