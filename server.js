@@ -789,7 +789,7 @@ app.post("/webhook", async (req, res) => {
       const joined = await isChannelMember(userId);
       if (joined) {
         await sendMessage(chatId, "💼 How selling works\n\n1. Pick your category\n2. Pay the vendor fee in Stars\n3. Send these details:\n   • Product name\n   • Price with its unit (e.g. 2,000 per bag)\n   • Description\n   • Shop or vendor name\n   • Your Telegram username\n   • Photo (optional)\n4. We list it and buyers can order\n\nEvery 90 days we will ask if your items are still available, so keep them fresh.");
-        await sendMessage(chatId, "Which category will you be selling in?", vendorCategoryKeyboard());
+        await sendMessage(chatId, "👇 Which category will you be selling in?", vendorCategoryKeyboard());
       } else {
         await sendMessage(chatId,
           "Please join our channel first to become a vendor 👇",
@@ -984,7 +984,7 @@ app.post("/webhook", async (req, res) => {
       const joined = await isChannelMember(userId);
       if (joined) {
         await sendMessage(chatId, "💼 How selling works\n\n1. Pick your category\n2. Pay the vendor fee in Stars\n3. Send these details:\n   • Product name\n   • Price with its unit (e.g. 2,000 per bag)\n   • Description\n   • Shop or vendor name\n   • Your Telegram username\n   • Photo (optional)\n4. We list it and buyers can order\n\nEvery 90 days we will ask if your items are still available, so keep them fresh.");
-        await sendMessage(chatId, "Which category will you be selling in?", vendorCategoryKeyboard());
+        await sendMessage(chatId, "👇 Which category will you be selling in?", vendorCategoryKeyboard());
       } else {
         await sendMessage(chatId,
           "Please join our channel first to become a vendor 👇",
@@ -1092,7 +1092,7 @@ function joinChannelKeyboard() {
 function vendorCategoryKeyboard() {
   return {
     inline_keyboard: CATEGORIES.map((cat, i) => (
-      [{ text: cat, callback_data: `vc_${i}` }]
+      [{ text: cat, callback_data: `vc_${i}`, style: "primary" }]
     ))
   };
 }
