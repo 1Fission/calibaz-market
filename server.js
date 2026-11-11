@@ -788,6 +788,7 @@ app.post("/webhook", async (req, res) => {
       const userId = update.message.from.id;
       const joined = await isChannelMember(userId);
       if (joined) {
+        await sendMessage(chatId, "💼 How selling works\n\n1. Pick your category\n2. Pay the vendor fee in Stars\n3. Send your product name, price, description and photos\n4. We list it and buyers can order\n\nEvery 90 days we will ask if your items are still available, so keep them fresh.");
         await sendMessage(chatId, "Which category will you be selling in?", vendorCategoryKeyboard());
       } else {
         await sendMessage(chatId,
@@ -982,6 +983,7 @@ app.post("/webhook", async (req, res) => {
       const userId = update.callback_query.from.id;
       const joined = await isChannelMember(userId);
       if (joined) {
+        await sendMessage(chatId, "💼 How selling works\n\n1. Pick your category\n2. Pay the vendor fee in Stars\n3. Send your product name, price, description and photos\n4. We list it and buyers can order\n\nEvery 90 days we will ask if your items are still available, so keep them fresh.");
         await sendMessage(chatId, "Which category will you be selling in?", vendorCategoryKeyboard());
       } else {
         await sendMessage(chatId,
