@@ -359,7 +359,7 @@
         ${p.image ? `<img class="pimg" src="https://calibaz-backend.onrender.com/image/${p.image}">` : ""}
         <h3>${p.name}</h3>
         <div class="price">${/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price}</div>
-        <div class="desc">${p.description}</div>
+        ${p.location ? `<div class="loc" style="font-size:12px;opacity:.7;margin:2px 0 4px;">📍 ${p.location}</div>` : ""}<div class="desc">${p.description}</div>
         <button>I'm Interested</button>
         <button class="sharebtn" style="margin-top:6px;background:transparent;border:1px solid currentColor;">🔗 Share</button>
       `;
