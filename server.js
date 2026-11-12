@@ -63,10 +63,12 @@ async function connectDB() {
   ratingsCollection = db.collection("ratings");
   reportsCollection = db.collection("reports");
   adEventsCollection = db.collection("ad_events");
+  locationsCollection = db.collection("vendor_locations");
   console.log("Connected to MongoDB");
 }
 connectDB().catch(err => console.error("MongoDB connection error:", err));
 
+var locationsCollection;
 async function loadProducts(includeHidden) {
   return await productsCollection.find(includeHidden ? {} : { hidden: { $ne: true } }).toArray();
 }
@@ -83,7 +85,7 @@ app.get("/", (req, res) => {
 app.get("/products", async (req, res) => {
   try {
     const products = await loadProducts();
-    const isAdmin = isAdminInitData(req.headers["x-init-data"] || ""); const vv = (await verifiedCollection.find({}).toArray()).map(v => v.vendor); const rtAgg = await ratingsCollection.aggregate([{ $group: { _id: "$vendor", avg: { $avg: "$stars" }, n: { $sum: 1 } } }]).toArray(); const rtMap = {}; rtAgg.forEach(r => { rtMap[r._id] = r; }); res.json(products.filter(p => isAdmin || p.category !== TEST_CATEGORY).map(p => ({ ...p, verified: vv.includes((p.vendor || "").toLowerCase()), ratingAvg: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).avg || null, ratingCount: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).n || 0 })));
+    const isAdmin = isAdminInitData(req.headers["x-init-data"] || ""); const vv = (await verifiedCollection.find({}).toArray()).map(v => v.vendor); const rtAgg = await ratingsCollection.aggregate([{ $group: { _id: "$vendor", avg: { $avg: "$stars" }, n: { $sum: 1 } } }]).toArray(); const rtMap = {}; rtAgg.forEach(r => { rtMap[r._id] = r; }); const locMap = {}; (await locationsCollection.find({}).toArray()).forEach(l => { locMap[l.key] = l; }); res.json(products.filter(p => isAdmin || p.category !== TEST_CATEGORY).map(p => ({ ...p, location: ((locMap[String(p.vendor || "").toLowerCase() + "|" + String(p.vendorName || "").toLowerCase()] || {}).label) || null, verified: vv.includes((p.vendor || "").toLowerCase()), ratingAvg: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).avg || null, ratingCount: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).n || 0 })));
   } catch (err) {
     res.status(500).json({ error: "Could not load products" });
   }
@@ -795,6 +797,34 @@ app.post("/webhook", async (req, res) => {
           "Please join our channel first to become a vendor 👇",
           joinChannelKeyboard()
         );
+      }
+    }
+
+    if (text.startsWith("/addlocation")) {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const lp = text.replace("/addlocation", "").split("|").map(function (x) { return x.trim(); });
+        const lUser = (lp[0] || "").replace(/^@+/, "").trim().toLowerCase();
+        const lShop = lp[1] || "";
+        const lState = lp[2] || "";
+        const lLga = lp[3] || "";
+        const lCountry = lp[4] || "";
+        if (!lUser || !lShop || !lState) {
+          await sendMessage(chatId, "Format:\n/addlocation username | Shop Name | State | LGA | Country\n\nLGA and Country are optional, leave them empty to skip.\nExample:\n/addlocation collgini | Yevour Luxe | Lagos | Ikeja");
+        } else {
+          const lp2 = await productsCollection.find({ vendor: lUser }).toArray();
+          const lm = lp2.find(function (p) { return String(p.vendorName || "").toLowerCase() === lShop.toLowerCase(); });
+          if (!lm) {
+            const names = Array.from(new Set(lp2.map(function (p) { return p.vendorName; })));
+            await sendMessage(chatId, names.length ? "No shop named " + lShop + " for @" + lUser + ". Their shops: " + names.join(", ") : "No listings found for @" + lUser + ".");
+          } else {
+            const label = [lLga, lState, lCountry].filter(Boolean).join(", ");
+            const key = lUser + "|" + String(lm.vendorName).toLowerCase();
+            await locationsCollection.updateOne({ key: key }, { $set: { key: key, vendor: lUser, shop: lm.vendorName, state: lState, lga: lLga, country: lCountry, label: label, at: Date.now() } }, { upsert: true });
+            await sendMessage(chatId, "📍 Location saved for " + lm.vendorName + " (@" + lUser + "): " + label);
+          }
+        }
       }
     }
 
