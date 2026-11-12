@@ -85,7 +85,7 @@ app.get("/", (req, res) => {
 app.get("/products", async (req, res) => {
   try {
     const products = await loadProducts();
-    const isAdmin = isAdminInitData(req.headers["x-init-data"] || ""); const vv = (await verifiedCollection.find({}).toArray()).map(v => v.vendor); const rtAgg = await ratingsCollection.aggregate([{ $group: { _id: "$vendor", avg: { $avg: "$stars" }, n: { $sum: 1 } } }]).toArray(); const rtMap = {}; rtAgg.forEach(r => { rtMap[r._id] = r; }); const locMap = {}; (await locationsCollection.find({}).toArray()).forEach(l => { locMap[l.key] = l; }); res.json(products.filter(p => isAdmin || p.category !== TEST_CATEGORY).map(p => ({ ...p, location: ((locMap[String(p.vendor || "").toLowerCase() + "|" + String(p.vendorName || "").toLowerCase()] || {}).label) || null, verified: vv.includes((p.vendor || "").toLowerCase()), ratingAvg: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).avg || null, ratingCount: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).n || 0 })));
+    const isAdmin = isAdminInitData(req.headers["x-init-data"] || ""); const vv = (await verifiedCollection.find({}).toArray()).map(v => v.vendor); const rtAgg = await ratingsCollection.aggregate([{ $group: { _id: "$vendor", avg: { $avg: "$stars" }, n: { $sum: 1 } } }]).toArray(); const rtMap = {}; rtAgg.forEach(r => { rtMap[r._id] = r; }); const locMap = {}; (await locationsCollection.find({}).toArray()).forEach(l => { locMap[l.key] = l; }); res.json(products.filter(p => isAdmin || p.category !== TEST_CATEGORY).map(p => ({ ...p, location: ((locMap[String(p.vendor || "").replace(/^@+/, "").toLowerCase() + "|" + String(p.vendorName || "").toLowerCase()] || {}).label) || null, verified: vv.includes((p.vendor || "").toLowerCase()), ratingAvg: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).avg || null, ratingCount: (rtMap[(p.vendor || "").replace("@", "").toLowerCase()] || {}).n || 0 })));
   } catch (err) {
     res.status(500).json({ error: "Could not load products" });
   }
@@ -813,7 +813,7 @@ app.post("/webhook", async (req, res) => {
         if (!lUser || !lShop || !lState) {
           await sendMessage(chatId, "Format:\n/addlocation username | Shop Name | State | LGA | Country\n\nLGA and Country are optional, leave them empty to skip.\nExample:\n/addlocation collgini | Yevour Luxe | Lagos | Ikeja");
         } else {
-          const lp2 = await productsCollection.find({ vendor: lUser }).toArray();
+          const lp2 = await productsCollection.find({ vendor: { $regex: "^@*" + lUser.replace(/[^a-z0-9_]/g, "") + "$", $options: "i" } }).toArray();
           const lm = lp2.find(function (p) { return String(p.vendorName || "").toLowerCase() === lShop.toLowerCase(); });
           if (!lm) {
             const names = Array.from(new Set(lp2.map(function (p) { return p.vendorName; })));
