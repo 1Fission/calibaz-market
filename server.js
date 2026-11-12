@@ -1277,6 +1277,9 @@ Send /mylistings to this bot. Tap "✏️ Request change" under the listing, the
 <b>Why did I get "Is this still available?"</b>
 Every 90 days we check that your listings are still available. Tap "Yes, still available" to keep a listing live, or "Remove" if it has sold. If there is no reply within 7 days, the listing is hidden, not deleted, and support can bring it back.
 
+<b>Can I show my location?</b>
+Yes, it is optional. Ask @FissionHelp to add your state, and your LGA or country if you like. Buyers see a small 📍 line on your listings.
+
 <b>Change or remove a listing?</b>
 Message @FissionHelp with the product name and the change.`;
 
