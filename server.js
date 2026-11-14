@@ -38,7 +38,9 @@ const CATEGORIES = [
   "Fashion & Apparel",
   "Home & Lifestyle",
   "Beauty & Personal Care",
-  "Food & Related Products"
+  "Food & Related Products",
+  "Pre-Loved & Second-Hand",
+  "Automobile & Related Products"
 ];
 const LAND_HOUSING_INDEX = CATEGORIES.indexOf("Land & Housing");
 
