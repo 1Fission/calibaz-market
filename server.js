@@ -9,6 +9,7 @@ const SUPPORT_USERNAME = "FissionHelp";
 const VENDOR_FEE_STARS = 57;
 const CHANNEL_USERNAME = "CalibazHQ";
 const ADMIN_IDS = [1256464530, 7310115244];
+const PENDING_PHOTOS = new Map();
 
 const crypto = require("crypto");
 const TEST_CATEGORY = "Test Items (Admin Only)";
@@ -109,6 +110,30 @@ app.post("/webhook", async (req, res) => {
         );
       }
       const isAdminUser = !!fromUser && ADMIN_IDS.includes(fromUser.id);
+      if (isAdminUser && update.message.chat.type === "private") {
+        let live = PENDING_PHOTOS.get(fromUser.id);
+        if (live && live.exp < Date.now()) { PENDING_PHOTOS.delete(fromUser.id); live = null; }
+        if (live && text.trim().toLowerCase() === "/done") {
+          PENDING_PHOTOS.delete(fromUser.id);
+          await sendMessage(chatId, "Done ✅ Listing saved with all its photos.");
+          res.sendStatus(200); return;
+        }
+        if (live && update.message.photo && !text) {
+          const fid = update.message.photo[update.message.photo.length - 1].file_id;
+          const prod = await productsCollection.findOne({ id: live.id });
+          const cur = (prod && prod.images) || [];
+          if (cur.length >= 5) {
+            PENDING_PHOTOS.delete(fromUser.id);
+            await sendMessage(chatId, "Maximum of 5 photos reached ✅");
+          } else {
+            await productsCollection.updateOne({ id: live.id }, { $push: { images: fid } });
+            const n = cur.length + 1;
+            if (n >= 5) { PENDING_PHOTOS.delete(fromUser.id); await sendMessage(chatId, "Photo 5/5 added. Listing complete ✅"); }
+            else await sendMessage(chatId, "Photo " + n + "/5 added. Send more or /done.");
+          }
+          res.sendStatus(200); return;
+        }
+      }
 
       if (text === "/start vendor") {
         await sendMessage(chatId, "You're set up as a CaliBaz vendor ✅\n\nWhen a buyer taps I'm Interested on your product, their messages arrive here. Tap ↩️ Reply under a message to answer them.\n\nTrack your sales anytime with /mystats. You can also share your shop with the 🔗 Share this shop button in the Market.");
@@ -852,7 +877,8 @@ app.post("/webhook", async (req, res) => {
             await saveProduct({
               id: newId,
               category, name, price, description, vendor, vendorName,
-              image: (update.message.photo ? update.message.photo[update.message.photo.length - 1].file_id : null)
+              image: (update.message.photo ? update.message.photo[update.message.photo.length - 1].file_id : null),
+              images: (update.message.photo ? [update.message.photo[update.message.photo.length - 1].file_id] : [])
             });
             try {
               if (category !== "Test Items (Admin Only)") {
@@ -879,6 +905,10 @@ app.post("/webhook", async (req, res) => {
               await sendMessage(chatId, "⚠️ Listed, but the channel post failed.");
             }
             await sendMessage(chatId, `Product added: ${name} (${category}) by ${vendorName}`);
+            if (update.message.photo) {
+              PENDING_PHOTOS.set(update.message.from.id, { id: newId, exp: Date.now() + 15 * 60 * 1000 });
+              await sendMessage(chatId, "📸 Send up to 4 more photos for this listing, one by one. Send /done when finished.");
+            }
           } catch (err) {
             await sendMessage(chatId, "Error saving product. Please try again.");
           }
