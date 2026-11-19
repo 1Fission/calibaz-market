@@ -16,6 +16,10 @@
   .vendor:active { background:#232f3d; }
   .product { background:#1b2530; border:1px solid #2a3644; border-radius:10px; padding:16px; margin-bottom:10px; }
   .pimg { width:100%; border-radius:8px; margin-bottom:10px; }
+  .pslider { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; border-radius:8px; margin-bottom:6px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .pslider::-webkit-scrollbar { display:none; }
+  .pslider img { flex:0 0 100%; width:100%; scroll-snap-align:center; }
+  .pdots { text-align:center; font-size:12px; opacity:.7; margin-bottom:8px; }
   .product h3 { margin:0 0 6px 0; font-size:16px; }
   .product .price { color:#f2c94c; font-weight:bold; margin-bottom:6px; }
   .product .desc { color:#9aa5b1; font-size:13px; margin-bottom:12px; }
@@ -93,6 +97,7 @@
   ];
 
   const categoriesView = document.getElementById("categoriesView");
+  document.addEventListener("scroll", function (e) { var t = e.target; if (t && t.classList && t.classList.contains("pslider")) { var n = t.children.length; var i = Math.round(t.scrollLeft / t.clientWidth) + 1; var d = t.nextElementSibling; if (d) d.textContent = i + " / " + n + " · swipe ➡️"; } }, true);
   const vendorsView = document.getElementById("vendorsView");
   const productsView = document.getElementById("productsView");
   const categoryTitle = document.getElementById("categoryTitle");
@@ -360,7 +365,7 @@
       const div = document.createElement("div");
       div.className = "product";
       div.innerHTML = `
-        ${p.image ? `<img class="pimg" src="https://calibaz-backend.onrender.com/image/${p.image}">` : ""}
+        ${p.images && p.images.length > 1 ? `<div class="pslider">${p.images.map(f => `<img src="https://calibaz-backend.onrender.com/image/${f}">`).join("")}</div><div class="pdots">1 / ${p.images.length} · swipe ➡️</div>` : (p.image ? `<img class="pimg" src="https://calibaz-backend.onrender.com/image/${p.image}">` : "")}
         <h3>${p.name}</h3>
         <div class="price">${/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price}</div>
         ${p.location ? `<div class="loc" style="font-size:12px;opacity:.7;margin:2px 0 4px;">📍 ${p.location}</div>` : ""}<div class="desc">${p.description}</div>
