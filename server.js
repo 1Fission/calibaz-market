@@ -738,9 +738,9 @@ app.post("/webhook", async (req, res) => {
         const epId = ep[0];
         const epField = (ep[1] || "").toLowerCase();
         const epValue = ep.slice(2).join(" | ");
-        const fieldMap = { name: "name", price: "price", description: "description", vendorname: "vendorName", category: "category" };
+        const fieldMap = { name: "name", price: "price", description: "description", vendorname: "vendorName", category: "category", discount: "discount" };
         if (!epId || !epField || (epField !== "photo" && !epValue)) {
-          await sendMessage(chatId, "Format:\n/editproduct <id> | field | new value\n\nFields: name, price, description, vendorname, category\n\nTo change the photo, send the new photo with this caption:\n/editproduct <id> | photo");
+          await sendMessage(chatId, "Format:\n/editproduct <id> | field | new value\n\nFields: name, price, description, vendorname, category, discount\n\nTo change the photo, send the new photo with this caption:\n/editproduct <id> | photo");
         } else if (epField === "photo") {
           const ph = update.message.photo;
           if (!ph) {
@@ -750,9 +750,9 @@ app.post("/webhook", async (req, res) => {
             await sendMessage(chatId, r.matchedCount ? "Photo updated ✅" : "No product found with that id.");
           }
         } else if (!fieldMap[epField]) {
-          await sendMessage(chatId, "Unknown field. Use: name, price, description, vendorname, category, photo");
+          await sendMessage(chatId, "Unknown field. Use: name, price, description, vendorname, category, discount, photo");
         } else {
-          const r = await productsCollection.updateOne({ id: epId }, { $set: { [fieldMap[epField]]: epValue } });
+          const r = (epField === "discount" && epValue.toLowerCase() === "none") ? await productsCollection.updateOne({ id: epId }, { $unset: { discount: "" } }) : await productsCollection.updateOne({ id: epId }, { $set: { [fieldMap[epField]]: epValue } });
           await sendMessage(chatId, r.matchedCount ? "Updated " + epField + " ✅" : "No product found with that id.");
         }
       }

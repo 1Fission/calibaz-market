@@ -368,7 +368,7 @@
         ${p.images && p.images.length > 1 ? `<div class="pslider">${p.images.map(f => `<img src="https://calibaz-backend.onrender.com/image/${f}">`).join("")}</div><div class="pdots">1 / ${p.images.length} · swipe ➡️</div>` : (p.image ? `<img class="pimg" src="https://calibaz-backend.onrender.com/image/${p.image}">` : "")}
         <h3>${p.name}</h3>
         <div class="price">${/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price}</div>
-        ${p.location ? `<div class="loc" style="font-size:12px;opacity:.7;margin:2px 0 4px;">📍 ${p.location}</div>` : ""}<div class="desc">${p.description}</div>
+        ${p.location ? `<div class="loc" style="font-size:12px;opacity:.7;margin:2px 0 4px;">📍 ${p.location}</div>` : ""}<div class="desc">${p.description}</div>${p.discount ? `<div style="display:inline-block;margin:6px 0;padding:4px 10px;border-radius:999px;background:#16a34a;color:#fff;font-size:12px;font-weight:600;">🏷️ ${p.discount}</div>` : ""}
         <button>I'm Interested</button>
         <button class="sharebtn" style="margin-top:6px;background:transparent;border:1px solid currentColor;">🔗 Share</button>
       `;
