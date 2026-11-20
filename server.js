@@ -785,8 +785,13 @@ app.post("/webhook", async (req, res) => {
         if (all.length === 0) {
           await sendMessage(chatId, "No products yet.");
         } else {
-          const lines = all.slice(0, 25).map(p => `${p.id} | ${p.name} | ${p.category} | ${p.vendor}`);
-          await sendMessage(chatId, lines.join("\n") + (all.length > 25 ? `\n...and ${all.length - 25} more` : ""));
+          const lines = all.map(p => `${p.id} | ${p.name} | ${p.category} | ${p.vendor}`);
+          let chunk = `${all.length} listing(s)\n\n`;
+          for (const line of lines) {
+            if ((chunk + line).length > 3500) { await sendMessage(chatId, chunk); chunk = ""; }
+            chunk += line + "\n";
+          }
+          if (chunk) await sendMessage(chatId, chunk);
         }
       } else {
         const id = text.replace("/removeproduct", "").trim();
@@ -904,7 +909,7 @@ app.post("/webhook", async (req, res) => {
             } catch (e) {
               await sendMessage(chatId, "⚠️ Listed, but the channel post failed.");
             }
-            await sendMessage(chatId, `Product added: ${name} (${category}) by ${vendorName}`);
+            await sendMessage(chatId, `Product added: ${name} (${category}) by ${vendorName}\nID: ${newId}`);
             if (update.message.photo) {
               PENDING_PHOTOS.set(update.message.from.id, { id: newId, exp: Date.now() + 15 * 60 * 1000 });
               await sendMessage(chatId, "📸 Send up to 4 more photos for this listing, one by one. Send /done when finished.");
