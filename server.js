@@ -10,6 +10,7 @@ const VENDOR_FEE_STARS = 57;
 const CHANNEL_USERNAME = "CalibazHQ";
 const ADMIN_IDS = [1256464530, 7310115244];
 const PENDING_PHOTOS = new Map();
+const PENDING_COLLECTIONS = new Map();
 
 const crypto = require("crypto");
 const TEST_CATEGORY = "Test Items (Admin Only)";
@@ -113,6 +114,71 @@ app.post("/webhook", async (req, res) => {
       if (isAdminUser && update.message.chat.type === "private") {
         let live = PENDING_PHOTOS.get(fromUser.id);
         if (live && live.exp < Date.now()) { PENDING_PHOTOS.delete(fromUser.id); live = null; }
+        let col = PENDING_COLLECTIONS.get(fromUser.id);
+        if (col && col.exp < Date.now()) { PENDING_COLLECTIONS.delete(fromUser.id); col = null; }
+        if (col) {
+          const ct = text.trim();
+          if (ct.toLowerCase() === "/done") {
+            PENDING_COLLECTIONS.delete(fromUser.id);
+            const cdoc = await productsCollection.findOne({ id: col.id });
+            const citems = (cdoc && cdoc.items) || [];
+            if (citems.length === 0) {
+              await sendMessage(chatId, "No items were added. Collection ID " + col.id + " is empty, remove it with /removeproduct " + col.id);
+            } else {
+              await sendMessage(chatId, "Collection saved ✅ " + citems.length + " item(s). ID: " + col.id);
+              if (cdoc.category !== "Test Items (Admin Only)") {
+                try {
+                  const cesc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                  const clines = citems.map(i => "• " + cesc(String(i.name).slice(0, 40)) + " - " + cesc(/^\d+$/.test(String(i.price).trim()) ? i.price + " Stars" : String(i.price).slice(0, 30))).join("\n");
+                  const ccap = "🆕 <b>New collection</b>\n\n<b>" + cesc(cdoc.name) + "</b>\n🏪 " + cesc(cdoc.vendorName) + "\n📂 " + cesc(cdoc.category) + "\n\n" + clines;
+                  const cr2 = await fetch(TELEGRAM_API + "/sendPhoto", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      chat_id: "@" + CHANNEL_USERNAME,
+                      photo: citems[0].image,
+                      caption: ccap,
+                      parse_mode: "HTML",
+                      reply_markup: { inline_keyboard: [[{ text: "💬 I'm Interested", url: "https://t.me/CaliBazbot?start=deal_" + col.id }]] }
+                    })
+                  });
+                  const cj2 = await cr2.json();
+                  if (!cj2.ok) await sendMessage(chatId, "⚠️ Saved, but the channel post failed: " + cj2.description);
+                } catch (e) {
+                  await sendMessage(chatId, "⚠️ Saved, but the channel post failed.");
+                }
+              }
+            }
+            res.sendStatus(200); return;
+          }
+          if (update.message.photo) {
+            const cparts = ct.split("|").map(x => x.trim());
+            if (cparts.length < 2 || !cparts[0] || !cparts[1]) {
+              await sendMessage(chatId, "Send the photo again with the caption:\nItem Name | Price");
+              res.sendStatus(200); return;
+            }
+            const cfid = update.message.photo[update.message.photo.length - 1].file_id;
+            const ccur = await productsCollection.findOne({ id: col.id });
+            const have = (ccur && ccur.items) || [];
+            if (have.length >= 10) {
+              PENDING_COLLECTIONS.delete(fromUser.id);
+              await sendMessage(chatId, "Maximum of 10 items reached ✅");
+            } else {
+              const upd = { $push: { items: { image: cfid, name: cparts[0], price: cparts[1] }, images: cfid } };
+              if (have.length === 0) upd.$set = { image: cfid };
+              await productsCollection.updateOne({ id: col.id }, upd);
+              const cn = have.length + 1;
+              if (cn >= 10) {
+                PENDING_COLLECTIONS.delete(fromUser.id);
+                await sendMessage(chatId, "Item 10/10 added. Send /done to finish ✅");
+                PENDING_COLLECTIONS.set(fromUser.id, { id: col.id, exp: Date.now() + 5 * 60 * 1000 });
+              } else {
+                await sendMessage(chatId, "Item " + cn + "/10 added: " + cparts[0] + " - " + cparts[1] + "\nSend the next photo or /done.");
+              }
+            }
+            res.sendStatus(200); return;
+          }
+        }
         if (live && text.trim().toLowerCase() === "/done") {
           PENDING_PHOTOS.delete(fromUser.id);
           await sendMessage(chatId, "Done ✅ Listing saved with all its photos.");
@@ -858,6 +924,31 @@ app.post("/webhook", async (req, res) => {
           }
         }
       }
+    }
+
+    if (text.startsWith("/addcollection")) {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const cp = text.replace("/addcollection", "").split("|").map(x => x.trim());
+        if (cp.length < 5) {
+          await sendMessage(chatId, "Format:\n/addcollection Category | Collection Title | Description | vendorusername | Vendor Display Name\n\nThen send up to 10 photos, each captioned:\nItem Name | Price");
+        } else {
+          const [category, name, description, vendor, vendorName] = cp;
+          const force = (cp[5] || "").toLowerCase() === "force";
+          const handle = (vendor || "").replace("@", "").toLowerCase();
+          const started = handle ? await usersCollection.findOne({ username: handle }) : null;
+          if (!started && !force) {
+            await sendMessage(chatId, `⚠️ ${vendorName} (@${handle}) hasn't started @CaliBazbot yet. Forward them https://t.me/CaliBazbot?start=vendor and ask them to tap Start, then run /addcollection again.\n\nTo list them anyway, add | force at the end.`);
+          } else {
+            const newId = Date.now().toString();
+            await saveProduct({ id: newId, category, name, price: "Various", description, vendor, vendorName, image: null, images: [], items: [], collection: true });
+            PENDING_COLLECTIONS.set(update.message.from.id, { id: newId, exp: Date.now() + 20 * 60 * 1000 });
+            await sendMessage(chatId, "Collection created. ID: " + newId + "\n\n📸 Now send photos one by one, each captioned:\nItem Name | Price\n\nUp to 10 items. Send /done when finished.");
+          }
+        }
+      }
+      res.sendStatus(200); return;
     }
 
     if (text.startsWith("/addproduct")) {
