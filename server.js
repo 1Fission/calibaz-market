@@ -932,6 +932,77 @@ app.post("/webhook", async (req, res) => {
       }
     }
 
+    if (text === "/adminhelp") {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const h1 = [
+          "ADMIN COMMANDS (1/2): LISTINGS",
+          "",
+          "Add a product:",
+          "/addproduct Fashion & Apparel | Black Hoodie | 5000 | Warm cotton hoodie | janedoe | Jane's Wears",
+          "Send a photo with this line as the caption for a picture. Then send up to 4 more photos and /done. Add | force at the end if the vendor has not started the bot.",
+          "",
+          "Add a collection (many items, each with its own price):",
+          "/addcollection Fashion & Apparel | Cap Collection | Caps in many colours | janedoe | Jane's Wears",
+          "Then send up to 10 photos, each captioned like: Red Cap | 20  and finish with /done.",
+          "",
+          "Find IDs:",
+          "/listproducts",
+          "/listproducts janedoe",
+          "",
+          "Edit (fields: name, price, description, vendorname, category, discount, photo):",
+          "/editproduct 1234567890123 | price | 15",
+          "/editproduct 1234567890123 | discount | Buy 3 or more, save 10%",
+          "",
+          "Move to another category:",
+          "/setcategory 1234567890123 | Home & Lifestyle",
+          "",
+          "Remove:",
+          "/removeproduct 1234567890123",
+          "",
+          "Hidden listings:",
+          "/hidden",
+          "/unhide 1234567890123",
+          "/testavail 1234567890123"
+        ].join("\n");
+        const h2 = [
+          "ADMIN COMMANDS (2/2): VENDORS, DEALS AND MORE",
+          "",
+          "Vendors:",
+          "/vendors",
+          "/verify janedoe",
+          "/unverify janedoe",
+          "/addlocation janedoe | Jane's Wears | Lagos | Ikeja",
+          "/whoshop ab12cd",
+          "/moveshop oldusername newusername",
+          "",
+          "Deals:",
+          "/deals",
+          "/deal lq3x9a",
+          "/closedeal lq3x9a",
+          "",
+          "Stats:",
+          "/stats",
+          "/stats janedoe",
+          "/digest",
+          "",
+          "Home screen ad:",
+          "/setad Sell on CaliBaz. Become a vendor | https://t.me/CaliBazbot?start=become_vendor",
+          "/clearad",
+          "",
+          "Backup:",
+          "/backup",
+          "To restore, send the backup file with the caption /restore",
+          "",
+          "Full guide: https://claude.ai/artifact/EK5iRhrxzjw3FxVFQTMexQ"
+        ].join("\n");
+        await sendMessage(chatId, h1);
+        await sendMessage(chatId, h2);
+      }
+      res.sendStatus(200); return;
+    }
+
     if (text.startsWith("/addcollection")) {
       if (!ADMIN_IDS.includes(update.message.from.id)) {
         await sendMessage(chatId, "You're not authorized to use this command.");
