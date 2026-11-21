@@ -394,11 +394,11 @@ function showProducts(vendorUsername, vendorDisplayName) {
       if (cs) {
         cs.addEventListener("scroll", () => {
           const i = Math.round(cs.scrollLeft / cs.clientWidth);
-          div.querySelector(".cdots").textContent = (i + 1) + " / " + p.items.length + " · swipe ➡️";
+          div.dataset.slide = i; div.querySelector(".cdots").textContent = (i + 1) + " / " + p.items.length + " · swipe ➡️";
         });
       }
       div.querySelector("button").addEventListener("click", () => {
-        Telegram.WebApp.openTelegramLink("https://t.me/CaliBazbot?start=deal_" + encodeURIComponent(p.id));
+        Telegram.WebApp.openTelegramLink("https://t.me/CaliBazbot?start=deal_" + encodeURIComponent(p.id) + (p.collection && p.items && p.items.length ? "_" + (parseInt(div.dataset.slide || "0", 10) + 1) : ""));
         setTimeout(() => Telegram.WebApp.close(), 300);
       });
       div.querySelector(".sharebtn").addEventListener("click", () => {

@@ -221,17 +221,23 @@ app.post("/webhook", async (req, res) => {
           });
         }
       } else if (text.startsWith("/start deal_")) {
-        const productId = text.replace("/start deal_", "").trim();
+        const rawParam = text.replace("/start deal_", "").trim();
+        const productId = rawParam.split("_")[0];
+        const itemIdx = parseInt(rawParam.split("_")[1] || "0", 10) || 0;
         const memberOk = await isChannelMember(fromUser.id);
         if (!memberOk) {
           await sendMessage(chatId, "To chat with vendors on CaliBaz, please join our channel first 👇", {
             inline_keyboard: [
               [{ text: "📢 Join CaliBaz Channel", url: `https://t.me/${CHANNEL_USERNAME}` }],
-              [{ text: "✅ I've Joined - Continue", url: `https://t.me/CaliBazbot?start=deal_${productId}` }]
+              [{ text: "✅ I've Joined - Continue", url: `https://t.me/CaliBazbot?start=deal_${rawParam}` }]
             ]
           });
         }
-        const product = memberOk ? await productsCollection.findOne({ id: productId }) : null;
+        let product = memberOk ? await productsCollection.findOne({ id: productId }) : null;
+        if (product && itemIdx && product.items && product.items[itemIdx - 1]) {
+          const it = product.items[itemIdx - 1];
+          product = { ...product, name: product.name + " - " + it.name + " (" + (/^\d+$/.test(String(it.price).trim()) ? it.price + " Stars" : it.price) + ")" };
+        }
         if (!product) {
           if (memberOk) await sendMessage(chatId, "Sorry, that listing is no longer available.");
         } else {
