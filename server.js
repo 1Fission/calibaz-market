@@ -244,7 +244,7 @@ app.post("/webhook", async (req, res) => {
           const vendorHandle = (product.vendor || "").replace("@", "");
           const vendorLabel = product.vendorName || vendorHandle;
           const vendorUser = vendorHandle ? await usersCollection.findOne({ username: vendorHandle.toLowerCase() }) : null;
-          const existing = await dealsCollection.findOne({ productId, buyerChatId: chatId, status: "open" });
+          const existing = await dealsCollection.findOne({ productId, itemIdx: itemIdx ? itemIdx : { $in: [0, null] }, buyerChatId: chatId, status: "open" });
           if (existing) {
             await usersCollection.updateOne({ chatId }, { $set: { activeDealId: existing.dealId } });
             await sendDealMsg(chatId, `You already have an open chat for this product. Just type your message here.`, existing.dealId);
@@ -256,7 +256,7 @@ app.post("/webhook", async (req, res) => {
             const dealId = Date.now().toString(36);
             const buyerName = fromUser.first_name || "Buyer";
             await dealsCollection.insertOne({
-              dealId, productId, productName: product.name,
+              dealId, productId, itemIdx, productName: product.name,
               buyerChatId: chatId, buyerName,
               vendorChatId: vendorUser.chatId, vendorName: vendorLabel,
               status: "open", paid: false, createdAt: Date.now(), lastActivity: Date.now()
