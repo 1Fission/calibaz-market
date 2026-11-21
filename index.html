@@ -51,6 +51,15 @@
   @media (prefers-reduced-motion: reduce) { .escpill::after { animation:none; display:none; } }
   .empty { color:#9aa5b1; font-size:14px; text-align:center; margin-top:30px; }
 </style>
+<style>
+.cslider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.cslider::-webkit-scrollbar{display:none}
+.cslide{position:relative;flex:0 0 100%;scroll-snap-align:center}
+.cslide img{width:100%;height:260px;object-fit:cover;display:block}
+.ctag{position:absolute;left:8px;right:8px;bottom:8px;background:rgba(0,0,0,.78);color:#fff;border-radius:10px;padding:6px 10px;font-size:14px;display:flex;justify-content:space-between;gap:8px}
+.ctag b{white-space:nowrap}
+.cdots{font-size:12px;opacity:.7;margin:4px 0 6px;text-align:center}
+</style>
 </head>
 <body>
   <div class="titlerow"><h1>CaliBaz Market</h1><div class="escpill" onclick="Telegram.WebApp.openTelegramLink('https://t.me/FissionHelp?text=' + encodeURIComponent('Hi, I would like to use escrow on CaliBaz Market.'))">🔒 Free escrow</div></div>
@@ -328,7 +337,16 @@
     }
   }
 
-  function showProducts(vendorUsername, vendorDisplayName) {
+  function collectionHtml(p) {
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const slides = p.items.map(i => {
+    const pr = /^[0-9]+$/.test(String(i.price).trim()) ? i.price + " Stars" : i.price;
+    return '<div class="cslide"><img src="https://calibaz-backend.onrender.com/image/' + i.image + '"><div class="ctag"><span>' + esc(i.name) + '</span><b>' + esc(pr) + '</b></div></div>';
+  }).join("");
+  return '<div class="cslider">' + slides + '</div><div class="cdots">1 / ' + p.items.length + ' · swipe ➡️</div>';
+}
+
+function showProducts(vendorUsername, vendorDisplayName) {
     vendorTitle.textContent = vendorDisplayName;
     vendorsView.style.display = "none";
     productsView.style.display = "block";
@@ -365,13 +383,20 @@
       const div = document.createElement("div");
       div.className = "product";
       div.innerHTML = `
-        ${p.images && p.images.length > 1 ? `<div class="pslider">${p.images.map(f => `<img src="https://calibaz-backend.onrender.com/image/${f}">`).join("")}</div><div class="pdots">1 / ${p.images.length} · swipe ➡️</div>` : (p.image ? `<img class="pimg" src="https://calibaz-backend.onrender.com/image/${p.image}">` : "")}
+        ${p.collection && p.items && p.items.length ? collectionHtml(p) : p.images && p.images.length > 1 ? `<div class="pslider">${p.images.map(f => `<img src="https://calibaz-backend.onrender.com/image/${f}">`).join("")}</div><div class="pdots">1 / ${p.images.length} · swipe ➡️</div>` : (p.image ? `<img class="pimg" src="https://calibaz-backend.onrender.com/image/${p.image}">` : "")}
         <h3>${p.name}</h3>
-        <div class="price">${/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price}</div>
+        ${p.collection ? "" : `<div class="price">${/^[0-9]+$/.test(p.price) ? p.price + " Stars" : p.price}</div>`}
         ${p.location ? `<div class="loc" style="font-size:12px;opacity:.7;margin:2px 0 4px;">📍 ${p.location}</div>` : ""}<div class="desc">${p.description}</div>${p.discount ? `<div style="display:inline-block;margin:6px 0;padding:4px 10px;border-radius:999px;background:#16a34a;color:#fff;font-size:12px;font-weight:600;">🏷️ ${p.discount}</div>` : ""}
         <button>I'm Interested</button>
         <button class="sharebtn" style="margin-top:6px;background:transparent;border:1px solid currentColor;">🔗 Share</button>
       `;
+      const cs = div.querySelector(".cslider");
+      if (cs) {
+        cs.addEventListener("scroll", () => {
+          const i = Math.round(cs.scrollLeft / cs.clientWidth);
+          div.querySelector(".cdots").textContent = (i + 1) + " / " + p.items.length + " · swipe ➡️";
+        });
+      }
       div.querySelector("button").addEventListener("click", () => {
         Telegram.WebApp.openTelegramLink("https://t.me/CaliBazbot?start=deal_" + encodeURIComponent(p.id));
         setTimeout(() => Telegram.WebApp.close(), 300);
