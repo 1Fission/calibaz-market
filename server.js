@@ -1482,6 +1482,9 @@ Send /mylistings to this bot. Tap "✏️ Request change" under the listing, the
 <b>Why did I get "Is this still available?"</b>
 Every 90 days we check that your listings are still available. Tap "Yes, still available" to keep a listing live, or "Remove" if it has sold. If there is no reply within 7 days, the listing is hidden, not deleted, and support can bring it back.
 
+<b>Can I list many items on one card?</b>
+Yes. Our team can make a collection for you: one card that buyers swipe sideways, where each photo shows its own item name and price. Send @FissionHelp up to 10 photos, each with the item name and price. When a buyer taps "I'm Interested", the bot tells you which item they picked.
+
 <b>Can I show my location?</b>
 Yes, it is optional. Ask @FissionHelp to add your state, and your LGA or country if you like. Buyers see a small 📍 line on your listings.
 
