@@ -68,6 +68,7 @@ async function connectDB() {
   reportsCollection = db.collection("reports");
   adEventsCollection = db.collection("ad_events");
   locationsCollection = db.collection("vendor_locations");
+  requestsCollection = db.collection("requests");
   console.log("Connected to MongoDB");
 }
 connectDB().catch(err => console.error("MongoDB connection error:", err));
@@ -310,7 +311,7 @@ app.post("/webhook", async (req, res) => {
             } else {
               const rsRaw = await (await fetch("https://api.telegram.org/file/bot" + BOT_TOKEN + "/" + rsInfo.result.file_path)).text();
               const rsDump = JSON.parse(rsRaw, (k, v) => (typeof v === "string" && /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?Z$/.test(v)) ? new Date(v) : v);
-              const rsSets = { products: productsCollection, verified_vendors: verifiedCollection, ads: adsCollection, share_events: shareCollection, vendor_codes: codesCollection, users: usersCollection, deals: dealsCollection, relay_map: relayCollection, deal_messages: logCollection, vendor_alerts: alertsCollection, ratings: ratingsCollection, reports: reportsCollection, ad_events: adEventsCollection };
+              const rsSets = { products: productsCollection, verified_vendors: verifiedCollection, ads: adsCollection, share_events: shareCollection, vendor_codes: codesCollection, users: usersCollection, deals: dealsCollection, relay_map: relayCollection, deal_messages: logCollection, vendor_alerts: alertsCollection, ratings: ratingsCollection, reports: reportsCollection, ad_events: adEventsCollection, vendor_locations: locationsCollection, requests: requestsCollection };
               const rsOut = ["♻️ Restore finished", ""];
               for (const [rsName, rsCol] of Object.entries(rsSets)) {
                 const rsRows = (rsDump.collections && rsDump.collections[rsName]) || [];
@@ -341,7 +342,7 @@ app.post("/webhook", async (req, res) => {
           await sendMessage(chatId, "You're not authorized to use this command.");
         } else {
           try {
-            const bkSets = { products: productsCollection, verified_vendors: verifiedCollection, ads: adsCollection, share_events: shareCollection, vendor_codes: codesCollection, users: usersCollection, deals: dealsCollection, relay_map: relayCollection, deal_messages: logCollection, vendor_alerts: alertsCollection, ratings: ratingsCollection, reports: reportsCollection, ad_events: adEventsCollection };
+            const bkSets = { products: productsCollection, verified_vendors: verifiedCollection, ads: adsCollection, share_events: shareCollection, vendor_codes: codesCollection, users: usersCollection, deals: dealsCollection, relay_map: relayCollection, deal_messages: logCollection, vendor_alerts: alertsCollection, ratings: ratingsCollection, reports: reportsCollection, ad_events: adEventsCollection, vendor_locations: locationsCollection, requests: requestsCollection };
             const bkDump = { exportedAt: new Date().toISOString(), collections: {} };
             const bkCounts = [];
             for (const [bkName, bkCol] of Object.entries(bkSets)) {
@@ -569,6 +570,21 @@ app.post("/webhook", async (req, res) => {
         }
       }
 
+      if (!text.startsWith("/") && text && update.message.chat.type === "private") {
+        const rbu = await usersCollection.findOne({ chatId });
+        if (rbu && rbu.reqBoardAt && Date.now() - rbu.reqBoardAt < 10 * 60 * 1000) {
+          editReqHandled = true;
+          await usersCollection.updateOne({ chatId }, { $set: { reqBoardAt: null } });
+          const rbFrom = update.message.from || {};
+          const rbName = rbFrom.username ? "@" + rbFrom.username : "no username";
+          const rbId = Date.now().toString();
+          const rbText = text.slice(0, 1000);
+          await requestsCollection.insertOne({ id: rbId, chatId, username: rbFrom.username || null, text: rbText, status: "open", createdAt: new Date() });
+          const rbAlert = "📝 New buyer request\n\nFrom: " + rbName + "\nID: " + rbId + "\n\n" + rbText + "\n\nTo close it:\n/closerequest " + rbId;
+          for (const adminId of ADMIN_IDS) await sendMessage(adminId, rbAlert);
+          await sendMessage(chatId, "Thanks! Your request was sent to the CaliBaz team. We'll follow up with you here.");
+        }
+      }
       let reportHandled = editReqHandled;
       if (!text.startsWith("/") && text && update.message.chat.type === "private") {
         const ru = await usersCollection.findOne({ chatId });
@@ -733,6 +749,44 @@ app.post("/webhook", async (req, res) => {
       }
     }
 
+    if (text === "/request" || text.startsWith("/request@")) {
+      if (update.message.chat.type === "private") {
+        await startRequest(chatId, update.message.from.id);
+      }
+    }
+    if (text === "/cancelrequest") {
+      await usersCollection.updateOne({ chatId }, { $set: { reqBoardAt: null } });
+      await sendMessage(chatId, "Cancelled.");
+    }
+    if (text === "/requests") {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const openReqs = await requestsCollection.find({ status: "open" }).sort({ createdAt: -1 }).limit(15).toArray();
+        if (!openReqs.length) {
+          await sendMessage(chatId, "No open requests.");
+        } else {
+          let rqMsg = "📝 Open requests (" + openReqs.length + ")\n";
+          for (const r of openReqs) {
+            rqMsg += "\n" + r.id + " · " + (r.username ? "@" + r.username : "no username") + "\n" + r.text.slice(0, 150) + "\n";
+          }
+          await sendMessage(chatId, rqMsg.slice(0, 4000));
+        }
+      }
+    }
+    if (text.startsWith("/closerequest")) {
+      if (!ADMIN_IDS.includes(update.message.from.id)) {
+        await sendMessage(chatId, "You're not authorized to use this command.");
+      } else {
+        const crId = text.replace("/closerequest", "").trim();
+        if (!crId) {
+          await sendMessage(chatId, "Format:\n/closerequest <id>");
+        } else {
+          const crr = await requestsCollection.updateOne({ id: crId, status: "open" }, { $set: { status: "closed", closedAt: new Date() } });
+          await sendMessage(chatId, crr.matchedCount ? "Request closed." : "No open request with that id.");
+        }
+      }
+    }
     if (text === "/cancelchange") {
       await usersCollection.updateOne({ chatId }, { $set: { editReqId: null } });
       await sendMessage(chatId, "Cancelled.");
@@ -987,6 +1041,10 @@ app.post("/webhook", async (req, res) => {
           "/stats janedoe",
           "/digest",
           "",
+          "Buyer requests:",
+          "/requests",
+          "/closerequest 1795300000000",
+          "",
           "Home screen ad:",
           "/setad Sell on CaliBaz. Become a vendor | https://t.me/CaliBazbot?start=become_vendor",
           "/clearad",
@@ -1204,6 +1262,9 @@ app.post("/webhook", async (req, res) => {
     }
 
 
+    if (data === "request_item") {
+      await startRequest(chatId, chatId);
+    }
     if (data === "faq") {
       await sendMessage(chatId, "Which FAQ do you need?", faqKeyboard());
     }
@@ -1307,6 +1368,23 @@ async function sendInvoice(chatId) {
   });
 }
 
+var requestsCollection;
+
+async function startRequest(chatId, userId) {
+  const ok = await isChannelMember(userId);
+  if (!ok) {
+    await sendMessage(chatId, "Join the CaliBaz channel first, then tap Continue.", {
+      inline_keyboard: [
+        [{ text: "📢 Join CaliBaz Channel", url: `https://t.me/${CHANNEL_USERNAME}` }],
+        [{ text: "✅ I've Joined - Continue", callback_data: "request_item" }]
+      ]
+    });
+    return;
+  }
+  await usersCollection.updateOne({ chatId }, { $set: { reqBoardAt: Date.now() } }, { upsert: true });
+  await sendMessage(chatId, "📝 What are you looking for?\n\nDescribe the item in one message. Add your budget and location if you like.\n\nSend /cancelrequest to cancel.");
+}
+
 async function isChannelMember(userId) {
   const res = await fetch(`${TELEGRAM_API}/getChatMember?chat_id=@${CHANNEL_USERNAME}&user_id=${userId}`);
   const data = await res.json();
@@ -1337,6 +1415,7 @@ function mainMenuKeyboard() {
     inline_keyboard: [
       [{ text: "🛒 Open Market", web_app: { url: "https://1fission.github.io/calibaz-market/" } }],
       [{ text: "💼 Become a Vendor", callback_data: "become_vendor" }],
+      [{ text: "📝 Request an item", callback_data: "request_item" }],
       [{ text: "❓ FAQ", callback_data: "faq" }],
       [{ text: "🆘 Support", url: `https://t.me/${SUPPORT_USERNAME}` }]
     ]
