@@ -669,7 +669,7 @@ app.post("/webhook", async (req, res) => {
               const cp = await (await fetch(`${TELEGRAM_API}/copyMessage`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chat_id: target, from_chat_id: chatId, message_id: m.message_id })
+                body: JSON.stringify({ chat_id: target, from_chat_id: chatId, message_id: m.message_id, reply_markup: { inline_keyboard: [[{ text: "↩️ Reply", callback_data: "rp_" + d.dealId }]] } })
               })).json();
               if (cp.ok) await relayCollection.insertOne({ chatId: target, messageId: cp.result.message_id, dealId: d.dealId });
               for (const adminId of ADMIN_IDS) {
