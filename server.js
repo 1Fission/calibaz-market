@@ -663,9 +663,9 @@ app.post("/webhook", async (req, res) => {
             await logDeal(d.dealId, fromBuyer ? "buyer" : "vendor", label, m.text || m.caption || "", kind || "text");
             await dealsCollection.updateOne({ dealId: d.dealId }, { $set: { lastActivity: Date.now(), reminded: false } });
             if (!kind) {
-              await sendIncoming(target, `💬 ${label} · ${d.productName}:\n${m.text}`, d.dealId);
+              await sendIncoming(target, "💬 <b>" + dealEsc(label) + "</b>\n" + dealEsc(m.text) + "\n\n<i>Re: " + dealEsc(dealShort(d.productName)) + "</i>", d.dealId, "HTML");
             } else {
-              await sendIncoming(target, `📎 ${label} sent a file · ${d.productName}:`, d.dealId);
+              await sendIncoming(target, "📎 <b>" + dealEsc(label) + "</b> sent a file\n<i>Re: " + dealEsc(dealShort(d.productName)) + "</i>", d.dealId, "HTML", true);
               const cp = await (await fetch(`${TELEGRAM_API}/copyMessage`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1684,12 +1684,15 @@ function isActive(d) {
   return d.status === "completed" && Date.now() - (d.completedAt || 0) < GRACE_DAYS * DAY_MS;
 }
 
-async function sendDealMsg(chatId, text, dealId, keyboard) {
+function dealEsc(t) { return String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function dealShort(t) { const x = String(t || ""); return x.length > 40 ? x.slice(0, 40).trim() + "…" : x; }
+
+async function sendDealMsg(chatId, text, dealId, keyboard, parseMode) {
   try {
     const r = await fetch(`${TELEGRAM_API}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, reply_markup: keyboard })
+      body: JSON.stringify({ chat_id: chatId, text, reply_markup: keyboard, parse_mode: parseMode })
     });
     const d = await r.json();
     if (d.ok && dealId) await relayCollection.insertOne({ chatId, messageId: d.result.message_id, dealId });
@@ -1785,8 +1788,8 @@ async function checkStaleDeals() {
 setInterval(() => checkStaleDeals().catch(e => console.error(e)), 6 * 60 * 60 * 1000);
 setTimeout(() => checkStaleDeals().catch(e => console.error(e)), 60 * 1000);
 
-async function sendIncoming(chatId, text, dealId) {
-  const ok = await sendDealMsg(chatId, text, dealId, { inline_keyboard: [[{ text: "↩️ Reply", callback_data: `rp_${dealId}` }]] });
+async function sendIncoming(chatId, text, dealId, parseMode, noButton) {
+  const ok = await sendDealMsg(chatId, text, dealId, noButton ? undefined : { inline_keyboard: [[{ text: "↩️ Reply", callback_data: `rp_${dealId}` }]] }, parseMode);
   await usersCollection.updateOne({ chatId, activeDealId: { $nin: [null, dealId] } }, { $set: { activeDealId: null } });
   return ok;
 }
