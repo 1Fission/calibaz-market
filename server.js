@@ -595,12 +595,27 @@ app.post("/webhook", async (req, res) => {
             await sendMessage(chatId, "That request no longer exists.");
           } else {
             try {
-              await sendMessage(rar.chatId, "💬 CaliBaz team replied to your request:\n\n“" + rar.text.slice(0, 200) + "”\n\n" + text);
+              await sendMessage(rar.chatId, "💬 CaliBaz team replied to your request:\n\n“" + rar.text.slice(0, 200) + "”\n\n" + text + "\n\nTap ↩️ Reply below to answer.", { inline_keyboard: [[{ text: "↩️ Reply", callback_data: "rb_" + rar.id }]] });
               await requestsCollection.updateOne({ id: rar.id }, { $push: { replies: { text: text, at: new Date() } } });
               await sendMessage(chatId, "✅ Sent to " + (rar.username ? "@" + rar.username : "the buyer") + " (request " + rar.id + ").");
             } catch (e) {
               await sendMessage(chatId, "Could not send. The buyer may have blocked the bot.");
             }
+          }
+        }
+      }
+      if (!text.startsWith("/") && text && update.message.chat.type === "private") {
+        const rbr = await usersCollection.findOne({ chatId });
+        if (rbr && rbr.reqBuyReplyId && Date.now() - (rbr.reqBuyReplyAt || 0) < 10 * 60 * 1000) {
+          editReqHandled = true;
+          await usersCollection.updateOne({ chatId }, { $set: { reqBuyReplyId: null } });
+          const rbq = await requestsCollection.findOne({ id: rbr.reqBuyReplyId, chatId });
+          if (rbq) {
+            const rbUser = (update.message.from && update.message.from.username) ? "@" + update.message.from.username : "no username";
+            await requestsCollection.updateOne({ id: rbq.id }, { $push: { replies: { from: "buyer", text: text.slice(0, 1000), at: new Date() } } });
+            const rbMsg = "💬 Buyer reply\n\nFrom: " + rbUser + "\nRequest " + rbq.id + ":\n“" + rbq.text.slice(0, 200) + "”\n\n" + text.slice(0, 1000);
+            for (const adminId of ADMIN_IDS) await sendMessage(adminId, rbMsg, { inline_keyboard: [[{ text: "💬 Reply to buyer", callback_data: "rq_" + rbq.id }]] });
+            await sendMessage(chatId, "✅ Sent to the CaliBaz team.");
           }
         }
       }
@@ -821,7 +836,7 @@ app.post("/webhook", async (req, res) => {
       }
     }
     if (text === "/cancelreply") {
-      await usersCollection.updateOne({ chatId }, { $set: { reqReplyId: null } });
+      await usersCollection.updateOne({ chatId }, { $set: { reqReplyId: null, reqBuyReplyId: null } });
       await sendMessage(chatId, "Cancelled.");
     }
     if (text === "/cancelchange") {
@@ -1300,6 +1315,15 @@ app.post("/webhook", async (req, res) => {
     }
 
 
+    if (data.startsWith("rb_")) {
+      const rbq2 = await requestsCollection.findOne({ id: data.slice(3), chatId });
+      if (!rbq2) {
+        await sendMessage(chatId, "That request no longer exists.");
+      } else {
+        await usersCollection.updateOne({ chatId }, { $set: { reqBuyReplyId: rbq2.id, reqBuyReplyAt: Date.now() } }, { upsert: true });
+        await sendMessage(chatId, "↩️ Replying about:\n“" + rbq2.text.slice(0, 200) + "”\n\nType your message now. Send /cancelreply to cancel.");
+      }
+    }
     if (data.startsWith("rq_")) {
       if (!ADMIN_IDS.includes(chatId)) {
         await sendMessage(chatId, "You're not authorized to do this.");
