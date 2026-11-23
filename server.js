@@ -1540,6 +1540,9 @@ No. Browsing and contacting vendors is free.
 <b>Where do I see new listings?</b>
 Every new listing is posted to our channel @CalibazHQ. Join it to see them first, and tap "I'm Interested" right from the post.
 
+<b>Can't find what you need?</b>
+Tap "📝 Request an item" on the main menu, or send /request, and describe what you want in one message. The CaliBaz team replies here in the bot. Tap "↩️ Reply" under their message to answer.
+
 <b>How do I order?</b>
 Tap "I'm Interested" on a product. It opens a private chat with the vendor inside this bot. Agree on price, payment, and any customization there.
 
