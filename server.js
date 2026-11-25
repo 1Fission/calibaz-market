@@ -387,6 +387,13 @@ app.post("/webhook", async (req, res) => {
             msOut.push("Buyers who chatted: " + msBuyers);
             msOut.push("Rating: " + (msAvg ? "⭐ " + msAvg + " (" + msRts.length + (msRts.length === 1 ? " rating)" : " ratings)") : "none yet"));
             msOut.push("Times your listings were shared: " + msShares);
+            try {
+              const myCode = await getOrCreateShopCode(msUser);
+              const myRefN = await usersCollection.countDocuments({ referredBy: msUser });
+              const myRefPaid = await usersCollection.countDocuments({ referredBy: msUser, referralPaid: true });
+              msOut.push("Vendors you referred: " + myRefN + (myRefN ? " (" + myRefPaid + " paid)" : ""));
+              if (myCode) msOut.push("", "Your invite link for new vendors:", "https://t.me/CaliBazbot?start=ref_" + myCode);
+            } catch (e) {}
             await sendMessage(chatId, msOut.join("\n"));
           }
         }
@@ -417,6 +424,22 @@ app.post("/webhook", async (req, res) => {
             out.push("Deals: " + deals.length + " (open " + n("open") + " · completed " + n("completed") + " · closed " + n("closed") + ")");
             out.push("Payments confirmed: " + deals.filter(d => d.paid).length);
             out.push("Buyers who chatted: " + buyers);
+            try {
+              if (!q) {
+                const rfAll = await usersCollection.find({ referredBy: { $exists: true, $ne: null } }).toArray();
+                if (rfAll.length) {
+                  const rfTally = {};
+                  rfAll.forEach(u => { rfTally[u.referredBy] = (rfTally[u.referredBy] || 0) + 1; });
+                  const rfTop = Object.entries(rfTally).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => "@" + e[0] + " (" + e[1] + ")").join(", ");
+                  out.push("Referrals: " + rfAll.length + " joined via links · " + rfAll.filter(u => u.referralPaid).length + " paid");
+                  out.push("Top referrers: " + rfTop);
+                }
+              } else if (handles.length === 1) {
+                const rfN = await usersCollection.countDocuments({ referredBy: handles[0] });
+                const rfP = await usersCollection.countDocuments({ referredBy: handles[0], referralPaid: true });
+                out.push("Vendors referred: " + rfN + " (" + rfP + " paid)");
+              }
+            } catch (e) {}
             out.push("Rating: " + (avg ? "⭐ " + avg + " (" + rts.length + (rts.length === 1 ? " rating)" : " ratings)") : "no ratings yet"));
             if (!q) {
               try {
@@ -996,7 +1019,21 @@ app.post("/webhook", async (req, res) => {
       );
     }
 
-    if (text === "/becomevendor" || text === "/start become_vendor") {
+    if (text.startsWith("/start ref_")) {
+  try {
+    const rfCode = text.replace("/start ref_", "").trim();
+    const rfFrom = update.message.from || {};
+    const rfSelf = (rfFrom.username || "").toLowerCase();
+    if (codesCollection && /^[a-z0-9]{6}$/.test(rfCode)) {
+      const rfDoc = await codesCollection.findOne({ code: rfCode });
+      const rfExisting = await usersCollection.findOne({ chatId });
+      if (rfDoc && rfDoc.user !== rfSelf && (!rfExisting || !rfExisting.referredBy)) {
+        await usersCollection.updateOne({ chatId }, { $set: { referredBy: rfDoc.user, referredAt: Date.now() } }, { upsert: true });
+      }
+    }
+  } catch (e) { console.error("referral record failed", e); }
+}
+if (text === "/becomevendor" || text === "/start become_vendor" || text.startsWith("/start ref_")) {
       const userId = update.message.from.id;
       const joined = await isChannelMember(userId);
       if (joined) {
@@ -1400,6 +1437,10 @@ app.post("/webhook", async (req, res) => {
       const note = "💰 New vendor payment\n\nUser: " + who + "\nChat ID: " + pf.id + "\nAmount: " + sp.total_amount + " ⭐ (" + sp.currency + ")\nCharge ID: " + sp.telegram_payment_charge_id;
       for (const adminId of ADMIN_IDS) await sendMessage(adminId, note);
     } catch (e) { console.error("admin payment notice failed", e); }
+    try {
+      const rpFrom = update.message.from || {};
+      if (rpFrom.id) await usersCollection.updateOne({ chatId: rpFrom.id, referredBy: { $exists: true } }, { $set: { referralPaid: true } });
+    } catch (e) { console.error("referral paid mark failed", e); }
   }
 
   if (update.pre_checkout_query) {
@@ -1879,6 +1920,22 @@ setTimeout(() => checkDigest().catch(e => console.error(e)), 90 * 1000);
 
 var shareCollection;
 var codesCollection;
+async function getOrCreateShopCode(u) {
+  if (!codesCollection) return null;
+  let doc = await codesCollection.findOne({ user: u });
+  if (!doc) {
+    const abc = "abcdefghjkmnpqrstuvwxyz23456789";
+    let code = "";
+    for (let tries = 0; tries < 10; tries++) {
+      const bytes = require("crypto").randomBytes(6);
+      code = Array.from(bytes).map(b => abc[b % abc.length]).join("");
+      if (!(await codesCollection.findOne({ code }))) break;
+    }
+    doc = { user: u, code };
+    await codesCollection.insertOne(doc);
+  }
+  return doc.code;
+}
 app.get("/shopcode", async (req, res) => {
   try {
     const u = String(req.query.u || "").replace(/^@/, "").toLowerCase();
