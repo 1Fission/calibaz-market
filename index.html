@@ -353,6 +353,8 @@ function showProducts(vendorUsername, vendorDisplayName) {
     productsContainer.innerHTML = "";
     let shopBtn = document.getElementById("shareShopBtn");
     if (shopBtn) shopBtn.remove();
+    const oldReqBtn = document.getElementById("reqItemBtn");
+    if (oldReqBtn) oldReqBtn.remove();
     const shopUser = String(vendorUsername).split("||")[0];
     if (/^[A-Za-z0-9_]{3,40}$/.test(shopUser)) {
       shopBtn = document.createElement("button");
@@ -370,6 +372,20 @@ function showProducts(vendorUsername, vendorDisplayName) {
           .catch(() => {});
       });
       productsContainer.parentNode.insertBefore(shopBtn, productsContainer);
+      const reqBtn = document.createElement("button");
+      reqBtn.id = "reqItemBtn";
+      reqBtn.textContent = "📝 Request an item";
+      reqBtn.style.margin = "0 0 10px 8px";
+      reqBtn.addEventListener("click", () => {
+        fetch("https://calibaz-backend.onrender.com/shopcode?u=" + encodeURIComponent(shopUser))
+          .then(r => r.json())
+          .then(d => {
+            if (!d || !d.code) return;
+            Telegram.WebApp.openTelegramLink("https://t.me/CaliBazbot?start=vreq_" + encodeURIComponent(d.code));
+          })
+          .catch(() => {});
+      });
+      shopBtn.parentNode.insertBefore(reqBtn, shopBtn.nextSibling);
     }
 
     const filtered = currentCategoryProducts.filter(p => (p.vendor + "||" + (p.vendorName || "")) === vendorUsername);

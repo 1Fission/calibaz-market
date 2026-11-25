@@ -595,7 +595,41 @@ app.post("/webhook", async (req, res) => {
 
       if (!text.startsWith("/") && text && update.message.chat.type === "private") {
         const rbu = await usersCollection.findOne({ chatId });
-        if (rbu && rbu.reqBoardAt && Date.now() - rbu.reqBoardAt < 10 * 60 * 1000) {
+        if (rbu && rbu.vreqVendor && Date.now() - (rbu.vreqAt || 0) < 10 * 60 * 1000) {
+        editReqHandled = true;
+        await usersCollection.updateOne({ chatId }, { $set: { vreqVendor: null, vreqAt: null } });
+        const vqHandle = rbu.vreqVendor;
+        const vqText = text.slice(0, 500);
+        const vqFrom = update.message.from || {};
+        const vqVendorU = await usersCollection.findOne({ username: vqHandle });
+        if (!vqVendorU) {
+          await sendMessage(chatId, "Sorry, this vendor cannot receive requests right now.");
+        } else {
+          const vqProd2 = await productsCollection.findOne({ vendor: new RegExp("^@?" + vqHandle + "$", "i") });
+          const vqLabel2 = (vqProd2 && vqProd2.vendorName) || "the vendor";
+          const vqBuyerName = vqFrom.first_name || "Buyer";
+          const vqDealId = Date.now().toString(36);
+          await dealsCollection.insertOne({
+            dealId: vqDealId, productId: null, itemIdx: 0, productName: "Item request",
+            buyerChatId: chatId, buyerName: vqBuyerName,
+            vendorChatId: vqVendorU.chatId, vendorName: vqLabel2, vendorHandle: vqHandle,
+            isRequest: true, status: "open", paid: false, createdAt: Date.now(), lastActivity: Date.now()
+          });
+          await logDeal(vqDealId, "system", "System", "Item request: " + vqBuyerName + " asked " + vqLabel2 + ": " + vqText);
+          await requestsCollection.insertOne({ id: vqDealId, chatId, username: vqFrom.username || null, text: vqText, status: "vendor", kind: "vendor", vendor: vqHandle, dealId: vqDealId, createdAt: new Date() });
+          await usersCollection.updateOne({ chatId }, { $set: { activeDealId: vqDealId } });
+          const vqReached = await sendDealMsg(vqVendorU.chatId, "📝 Item request from a buyer:\n\n" + vqText + "\n\nTap ↩️ Reply below to answer them. Messages are recorded for escrow and dispute resolution. When you have been paid, tap the button below.", vqDealId, {
+            inline_keyboard: [[{ text: "✅ Payment received", callback_data: "dp_" + vqDealId }], [{ text: "↩️ Reply", callback_data: "rp_" + vqDealId }]]
+          });
+          if (!vqReached) {
+            await dealsCollection.updateOne({ dealId: vqDealId }, { $set: { status: "closed", closedAt: Date.now(), closedReason: "vendor unreachable" } });
+            await requestsCollection.updateOne({ id: vqDealId }, { $set: { status: "closed" } });
+            await sendMessage(chatId, "Sorry, we could not reach this vendor right now. Please try again later.");
+          } else {
+            await sendDealMsg(chatId, "✅ Your request was sent to " + vqLabel2 + ". Their reply will arrive here, and you can type your messages here too. Send /enddeal to cancel.", vqDealId, { inline_keyboard: [[{ text: "🚩 Report a problem", callback_data: "rpt_" + vqDealId }]] });
+          }
+        }
+      } else if (rbu && rbu.reqBoardAt && Date.now() - rbu.reqBoardAt < 10 * 60 * 1000) {
           editReqHandled = true;
           await usersCollection.updateOne({ chatId }, { $set: { reqBoardAt: null } });
           const rbFrom = update.message.from || {};
@@ -1019,7 +1053,41 @@ app.post("/webhook", async (req, res) => {
       );
     }
 
-    if (text.startsWith("/start ref_")) {
+    if (text.startsWith("/start vreq_")) {
+  try {
+    const vqCode = text.replace("/start vreq_", "").trim();
+    const vqUserId = update.message.from.id;
+    const vqMember = await isChannelMember(vqUserId);
+    if (!vqMember) {
+      await sendMessage(chatId, "Please join our channel first to send item requests 👇", joinChannelKeyboard());
+    } else {
+      const vqDoc = (codesCollection && /^[a-z0-9]{6}$/.test(vqCode)) ? await codesCollection.findOne({ code: vqCode }) : null;
+      const vqVendor = vqDoc ? await usersCollection.findOne({ username: vqDoc.user }) : null;
+      if (!vqDoc) {
+        await sendMessage(chatId, "That shop link does not look right.");
+      } else if (!vqVendor) {
+        await sendMessage(chatId, "This vendor cannot receive requests yet. Please check back later.");
+      } else if (vqVendor.chatId === chatId) {
+        await sendMessage(chatId, "That is your own shop.");
+      } else {
+        const vqDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const vqTotal = await requestsCollection.countDocuments({ chatId: chatId, kind: "vendor", createdAt: { $gte: vqDayAgo } });
+        const vqSame = await requestsCollection.countDocuments({ chatId: chatId, kind: "vendor", vendor: vqDoc.user, createdAt: { $gte: vqDayAgo } });
+        if (vqTotal >= 2) {
+          await sendMessage(chatId, "You have reached the limit of 2 item requests a day. Please try again tomorrow.");
+        } else if (vqSame >= 1) {
+          await sendMessage(chatId, "You already sent this vendor a request today. Please try again tomorrow.");
+        } else {
+          const vqProd = await productsCollection.findOne({ vendor: new RegExp("^@?" + vqDoc.user + "$", "i") });
+          const vqLabel = (vqProd && vqProd.vendorName) || "this vendor";
+          await usersCollection.updateOne({ chatId }, { $set: { vreqVendor: vqDoc.user, vreqAt: Date.now() } }, { upsert: true });
+          await sendMessage(chatId, "📝 Request an item from " + vqLabel + "\n\nDescribe what you want in one message: the item, quantity and budget. You can send 2 requests a day.");
+        }
+      }
+    }
+  } catch (e) { console.error("vendor request start failed", e); }
+}
+if (text.startsWith("/start ref_")) {
   try {
     const rfCode = text.replace("/start ref_", "").trim();
     const rfFrom = update.message.from || {};
@@ -1309,7 +1377,7 @@ if (text === "/becomevendor" || text === "/start become_vendor" || text.startsWi
           await sendMessage(chatId, "Only the buyer can rate this deal.");
         } else {
           const prod = await productsCollection.findOne({ id: rd2.productId });
-          const key = ((prod && prod.vendor) || rd2.vendorName || "").replace("@", "").toLowerCase();
+          const key = ((prod && prod.vendor) || rd2.vendorHandle || rd2.vendorName || "").replace("@", "").toLowerCase();
           const prevRt = await ratingsCollection.findOne({ dealId: rtDeal });
           const rtLocked = !!prevRt && Date.now() - (prevRt.firstAt || prevRt.at || 0) > 10 * 60 * 1000;
           if (!rtLocked) await ratingsCollection.updateOne({ dealId: rtDeal }, { $set: { dealId: rtDeal, vendor: key, stars, at: Date.now() }, $setOnInsert: { firstAt: Date.now() } }, { upsert: true });
