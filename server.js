@@ -1128,6 +1128,7 @@ if (text === "/becomevendor" || text === "/start become_vendor" || text.startsWi
           "Stats:",
           "/stats",
           "/stats janedoe",
+          "(both also show referral counts)",
           "/digest",
           "",
           "Buyer requests:",
@@ -1384,7 +1385,7 @@ if (text === "/becomevendor" || text === "/start become_vendor" || text.startsWi
       await sendHtml(chatId, FAQ_BUYERS);
     }
     if (data === "faq_vendors") {
-      await sendHtml(chatId, FAQ_VENDORS);
+      for (const part of FAQ_VENDORS.split("@@SPLIT@@")) { if (part.trim()) await sendHtml(chatId, part.trim()); }
     }
 
     if (data === "become_vendor") {
@@ -1671,6 +1672,7 @@ Send /mystats to this bot. You will see your listings, deals, confirmed payments
 <b>Can I share my shop?</b>
 Yes. Open your shop in the Market and tap "🔗 Share this shop". Post the link anywhere: buyers tap it, start the bot and open your shop directly.
 
+@@SPLIT@@
 <b>Are my listings posted anywhere?</b>
 Yes. Every new listing is posted to our channel @CalibazHQ with an "I'm Interested" button, so more buyers see it.
 
@@ -1682,6 +1684,9 @@ Every 90 days we check that your listings are still available. Tap "Yes, still a
 
 <b>Can I list several photos or items together?</b>
 Yes, two ways. For one product with one price, send up to 5 photos and buyers swipe through them. We can also add a bulk discount tag, like "Buy 3 or more, save 10%". For many items with different prices, we make a collection: one swipeable card where each photo shows its own name and price. Send the photos with names and prices to @FissionHelp.
+
+<b>How do I invite other vendors?</b>
+Send /mystats to get your personal invite link. When someone opens it and becomes a vendor, it counts as your referral and shows in /mystats. There are no rewards yet.
 
 <b>Can I show my location?</b>
 Yes, it is optional. Ask @FissionHelp to add your state, and your LGA or country if you like. Buyers see a small 📍 line on your listings.
