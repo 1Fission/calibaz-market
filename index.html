@@ -381,7 +381,11 @@ function showProducts(vendorUsername, vendorDisplayName) {
           .then(r => r.json())
           .then(d => {
             if (!d || !d.code) return;
-            Telegram.WebApp.openTelegramLink("https://t.me/CaliBazbot?start=vreq_" + encodeURIComponent(d.code));
+            let nm = String(vendorDisplayName || "").slice(0, 30);
+            const enc = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+            let b64 = enc(nm);
+            while (b64.length > 50 && nm.length > 1) { nm = nm.slice(0, -1); b64 = enc(nm); }
+            Telegram.WebApp.openTelegramLink("https://t.me/CaliBazbot?start=vreq_" + d.code + (b64 ? "_" + b64 : ""));
           })
           .catch(() => {});
       });
