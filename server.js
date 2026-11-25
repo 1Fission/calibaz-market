@@ -1064,7 +1064,7 @@ app.post("/webhook", async (req, res) => {
     const vqRaw = text.replace("/start vreq_", "").trim();
     const vqCode = vqRaw.slice(0, 6);
     let vqShop = "";
-    try { vqShop = Buffer.from(vqRaw.slice(7), "base64url").toString("utf8").replace(/[<>&]/g, "").trim().slice(0, 40); } catch (e) {}
+    try { vqShop = Buffer.from(vqRaw.slice(7), "base64url").toString("utf8").replace(/[<>&]/g, "").replace(/✅/g, "").trim().slice(0, 40); } catch (e) {}
     const vqUserId = update.message.from.id;
     const vqMember = await isChannelMember(vqUserId);
     if (!vqMember) {
