@@ -1210,6 +1210,7 @@ if (text === "/becomevendor" || text === "/start become_vendor" || text.startsWi
           "/requests",
           "/closerequest 1795300000000",
           "/replyrequest 1795300000000",
+          "(requests for shops not on the bot also arrive here)",
           "",
           "Home screen ad:",
           "/setad Sell on CaliBaz. Become a vendor | https://t.me/CaliBazbot?start=become_vendor",
@@ -1660,6 +1661,9 @@ Every new listing is posted to our channel @CalibazHQ. Join it to see them first
 <b>Can't find what you need?</b>
 Tap "📝 Request an item" on the main menu, or send /request, and describe what you want in one message. The CaliBaz team replies here in the bot. Tap "↩️ Reply" under their message to answer.
 
+<b>Can I request an item from one vendor?</b>
+Yes. Open that vendor's shop in the market and tap "📝 Request an item". Describe what you want in one message and it goes to that vendor. You can send 2 requests a day, and 1 to the same vendor.
+
 <b>How do I order?</b>
 Tap "I'm Interested" on a product. It opens a private chat with the vendor inside this bot. Agree on price, payment, and any customization there.
 
@@ -1762,6 +1766,9 @@ Yes, two ways. For one product with one price, send up to 5 photos and buyers sw
 
 <b>How do I invite other vendors?</b>
 Send /mystats to get your personal invite link. When someone opens it and becomes a vendor, it counts as your referral and shows in /mystats. There are no rewards yet.
+
+<b>How do buyers request items from my shop?</b>
+Every shop page has a "📝 Request an item" button. A request arrives in this bot as a chat, with the ↩️ Reply and ✅ Payment received buttons. Each buyer can send 2 requests a day, and 1 to the same shop. If you have not tapped Start on this bot, the request goes to the CaliBaz team instead.
 
 <b>Can I show my location?</b>
 Yes, it is optional. Ask @FissionHelp to add your state, and your LGA or country if you like. Buyers see a small 📍 line on your listings.
